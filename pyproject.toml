@@ -1,0 +1,48 @@
+[project]
+name = "vlm-multi-token-prediction"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "contexttimer>=0.3.3",
+    "decord>=0.6.0",
+    "diffusers==0.16.0",
+    "easydict==1.9",
+    "einops==0.4.1",
+    "fairscale==0.4.4",
+    "ftfy>=6.3.1",
+    "h5py>=3.15.1",
+    "iopath>=0.1.10",
+    "ipython>=9.8.0",
+    "moviepy>=2.2.1",
+    "nltk>=3.9.2",
+    "numpy>=2.3.5",
+    "omegaconf>=2.3.0",
+    "opencv-python>=4.11.0.86",
+    "opencv-python-headless==4.5.5.64",
+    "opendatasets>=0.1.22",
+    "packaging>=25.0",
+    "pandas>=2.3.3",
+    "peft>=0.18.0",
+    "plotly>=6.5.0",
+    "pre-commit>=4.5.0",
+    "pycocoevalcap>=1.2",
+    "pycocotools>=2.0.10",
+    "python-magic>=0.4.27",
+    "pyyaml-env-tag==0.1",
+    "salesforce-lavis>=1.0.0",
+    "scikit-image>=0.25.2",
+    "sentencepiece>=0.2.1",
+    "soundfile>=0.13.1",
+    "spacy>=3.8.11",
+    "streamlit>=1.52.1",
+    "timm==0.4.12",
+    "tokenizers>=0.11.2",
+    "torchaudio>=2.9.1",
+    "torchvision>=0.24.1",
+    "tqdm>=4.67.1",
+    "transformers==4.33.2",
+    "webdataset>=1.0.2",
+    "wheel>=0.45.1",
+]
