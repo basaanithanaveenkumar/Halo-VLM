@@ -31,7 +31,7 @@ class BasicVLM(nn.Module):
         )
 
 
-    def forward(self, images, input_ids):
+    def forward(self, images, input_ids,attention_mask=None):
         img_features = self.vision_encoder(images)
         img_proj = self.image_projector(img_features)
         
@@ -42,8 +42,23 @@ class BasicVLM(nn.Module):
 
         transformer_inp= combined_embeds+self.positional_embeds(combined_embeds)
 
+        if attention_mask is None:
+            # If no mask provided, assume all text tokens are valid
+            txt_mask = torch.ones(B, num_txt_tokens, dtype=torch.bool, device=images.device)
+        else:
+            # attention_mask: (B, seq_len) with 1/True for valid tokens
+            txt_mask = attention_mask.bool()
+        # Image tokens are always valid (no padding)
+        img_mask = torch.ones(B, num_img_tokens, dtype=torch.bool, device=images.device)
+        
+        # Concatenate masks: [image_mask, text_mask]
+        full_mask = torch.cat([img_mask, txt_mask], dim=1)  # (B, total_len)
+
         transformer_out = self.transformer(
             tgt=transformer_inp,
-            memory=transformer_inp,)
+            memory=transformer_inp,
+            tgt_key_padding_mask=~full_mask,  # PyTorch expects True=ignore, so invert
+            memory_key_padding_mask=~full_mask,)
+        # TODO for the masking need to check the tgt_is_causel and memory_is_causal
         final_out=self.lm_head(transformer_out)
         return final_out

@@ -3,16 +3,17 @@ Multi-token prediction in Vision-Language Models (VLMs) is an advanced training 
 
 
 
-# install uv 
 
-# Install uv with curl
-curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Restart your shell
+## Environment Setup
+
+### 1. Install `uv` and Create Environment
+```bash
+# Install uv package manager
+curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
 source ~/.bashrc  # or ~/.zshrc
-
-# Verify installation
 uv --version
+```
 
 
 # project structure
