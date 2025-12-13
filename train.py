@@ -3,10 +3,10 @@ from transformers import AutoTokenizer
 from lavis.datasets.builders import load_dataset
 
 import os
-os.environ['cache_root'] = "/home/ha/.cache/lavis"
+os.environ['cache_root'] = "/home/ha/.cache/lavis/coco"
 # use the lavis coco dataset and create a dataloader suitable for vlm training
 from dataloader import create_vlm_dataloaders    
-coco_dataset = load_dataset("coco_caption", vis_path="/home/ha/.cache/lavis")
+coco_dataset = load_dataset("coco_caption", vis_path="/home/ha/.cache/lavis/coco")
         
 print("\nCreating dataloaders with BERT tokenizer...")
 tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
