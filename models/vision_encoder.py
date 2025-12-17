@@ -38,7 +38,6 @@ class VisionEncoder(nn.Module):
         
         
         # Apply projection if exists
-        import pdb;pdb.set_trace()
         if self.projection:
             features = self.projection(features)
         
