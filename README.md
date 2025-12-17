@@ -1,9 +1,13 @@
 # Halo VLM - Multi-Token Prediction
 
+![Halo VLM](assets/halo_RB.png)
+
 A PyTorch-based Vision-Language Model (VLM) implementation for Image Q&A with support for multi-token prediction. **Halo VLM** combines vision encoders with transformer-based language modeling to enable efficient image understanding and text generation.
+
 ## Overview
 
 This project implements a **BasicVLM** model that:
+
 - 🖼️ Encodes images using OpenCLIP (ViT-B-32)
 - 🔗 Projects image features to language embedding space
 - 📝 Generates text through next-token prediction
@@ -13,23 +17,27 @@ This project implements a **BasicVLM** model that:
 ## Features
 
 ✅ **Core Architecture**
+
 - Vision transformer (frozen or fine-tuned)
 - Linear image projector with dimension alignment
-- Transformer decoder (with 24 layers, 8 attention heads -tweakable )
+- Transformer decoder (with 24 layers, 8 attention heads — tweakable)
 - Causal masking for autoregressive generation
 - Sinusoidal positional embeddings
 
 ✅ **Training Infrastructure**
+
 - Gradient clipping and learning rate scheduling (Cosine Annealing)
 - Comprehensive gradient monitoring and statistics
 
 ✅ **Logging & Visualization**
+
 - TensorBoard integration for training metrics
 - Per-layer gradient and weight histograms
 - Ground truth vs. predicted token comparison with color-coded accuracy
 - Position-wise analysis for debugging predictions
 
 ✅ **Data Handling**
+
 - COCO Caption dataset integration via LAVIS
 - Configurable batch size and sequence length
 - Proper next-token prediction target construction
@@ -74,6 +82,7 @@ git clone <repository-url>
 cd vlm-multi_token_prediction
 
 # Install dependencies using uv
+uv sync
 ```
 
 ### 3. Download COCO Dataset (Optional)
@@ -88,14 +97,16 @@ python -c "from lavis.datasets.builders import load_dataset; \
 ```
 
 ### Data Loading Issues
+
 ```bash
 # Set LAVIS cache directory
 export LAVIS_CACHE_DIR=/path/to/cache
 ```
 
 ## Future Work
-- [ ] fix minor bugs
-- [ ] Multi-token  prediction with speculative decoding
+
+- [ ] Fix minor bugs
+- [ ] Multi-token prediction with speculative decoding
 - [ ] Mixed precision training (FP16/BF16)
 - [ ] CLIP style pretraining (not part of this repo)
 - [ ] LLM style pretraining (not part of this repo)
