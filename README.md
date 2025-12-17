@@ -1,6 +1,6 @@
 # VLM Multi-Token Prediction
 
-A PyTorch-based Vision-Language Model (VLM) implementation for Image Q&A with support for multi-token prediction. This project combines OpenCLIP vision encoders with transformer-based language modeling to enable efficient image understanding and text generation.
+A PyTorch-based Vision-Language Model (VLM) implementation for Image Q&A with support for multi-token prediction. This project combines  vision encoders with transformer-based language modeling to enable efficient image understanding and text generation.
 
 ## Overview
 
