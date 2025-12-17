@@ -14,16 +14,15 @@ This project implements a **BasicVLM** model that:
 ## Features
 
 ✅ **Core Architecture**
-- OpenCLIP vision encoder (frozen or fine-tuned)
+- Vision transformer (frozen or fine-tuned)
 - Linear image projector with dimension alignment
-- Transformer decoder with 24 layers, 8 attention heads
+- Transformer decoder (with 24 layers, 8 attention heads -tweakable )
 - Causal masking for autoregressive generation
 - Sinusoidal positional embeddings
 
 ✅ **Training Infrastructure**
 - Gradient clipping and learning rate scheduling (Cosine Annealing)
 - Comprehensive gradient monitoring and statistics
-- Automatic checkpoint saving (best model + epoch-wise)
 
 ✅ **Logging & Visualization**
 - TensorBoard integration for training metrics
