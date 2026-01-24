@@ -124,7 +124,7 @@ class TransformerBlock(nn.Module):
         # )
         # TODO need to get this from config
         self.hid_dim = round(emb_dim * 1.2) # for expansion and contraction
-        self.moe = DeepseekMoE(emb_dim,self.hid_dim,num_router_exprts=16,best_k=4,num_shared_exprts=2)
+        self.moe = DeepseekMoE(emb_dim,self.hid_dim,num_router_exprts=20,best_k=5,num_shared_exprts=2)
         # before ffn
         self.norm2 = nn.LayerNorm(emb_dim)
         

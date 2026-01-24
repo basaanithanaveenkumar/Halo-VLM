@@ -52,8 +52,7 @@ class CocoCaptionVLMDataset(Dataset):
         if is_train:
             return transforms.Compose([
                 # TODO  remove the cropping
-                transforms.Resize(256),              # Resize shorter edge to 256, maintaining aspect ratio
-                transforms.CenterCrop(224),          # Center crop to 224x224
+                transforms.Resize((224, 224)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                    std=[0.229, 0.224, 0.225])

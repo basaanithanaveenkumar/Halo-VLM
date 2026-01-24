@@ -219,411 +219,378 @@ class BasicVLMTrainer:
         img_array = img_tensor.permute(1, 2, 0).numpy()
         img_array = (img_array * 255).astype(np.uint8)
         return Image.fromarray(img_array)
-    def visualize_predictions(self, images, input_ids, outputs, texts=None, num_samples=2, num_img_tokens=196):
+    def visualize_predictions(self, images, input_ids, outputs, texts=None, num_samples=2, num_img_tokens=196, num_question_tokens=4):
         """
-        Visualize predicted vs ground truth tokens with attractive formatting.
-        Shows ground truth (GT) in green and predictions in blue with color-coded accuracy.
+        Visualize predicted vs ground truth tokens with MTP support.
+        Generates a static image listing the full sequence analysis.
         
         Args:
-            num_img_tokens: Number of image tokens to skip (default 196 for patch-based encoders)
+            outputs: Can be a Dict (logits) or Tensor (token IDs from latent_to_mtp_tokens)
         """
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            import torch
+        except ImportError:
+            print("PIL or torch not found.")
+            return []
+
         num_samples = min(num_samples, images.size(0))
         visualizations = []
         
+        # Color Palette (Consistent with Video)
+        COLORS = {
+            'bg': (20, 21, 26),
+            'text': (200, 214, 229),
+            'correct': (50, 255, 126),
+            'incorrect': (255, 71, 87),
+            'mtp_future': (255, 165, 2),
+            'dim': (100, 100, 100)
+        }
+
         for idx in range(num_samples):
-            img = self.tensor_to_image(images[idx:idx+1])
-            img_width, img_height = img.size
+            img_tensor = images[idx:idx+1]
+            base_img = self.tensor_to_image(img_tensor).convert("RGB")
+            img_width, img_height = base_img.size
             
-            # Get model predictions for this sample
-            # Skip image tokens - only get text predictions
-            logits = outputs[idx, num_img_tokens:, :]  # [text_seq_len, vocab_size]
-            predictions = torch.argmax(logits, dim=-1)  # [text_seq_len]
-            confidences = torch.softmax(logits, dim=-1).max(dim=-1)[0]  # [text_seq_len]
+            # --- 1. ROBUST INPUT HANDLING (From Video Function) ---
+            mtp_predictions = None
+            main_confidences = None # Only available if inputs are logits
             
-            # Ground truth is the labels (next tokens)
-            # Since labels align with text positions, we use input_ids shifted by 1
-            ground_truth = input_ids[idx, 1:]  # [seq_len-1] - next tokens
+            # CASE A: Output is Tensor [B, Seq, Heads] (Inference tokens)
+            if isinstance(outputs, torch.Tensor) and outputs.dim() == 3:
+                sample_tokens = outputs[idx] # [Seq, Heads]
+                main_predictions = sample_tokens[:, 0]
+                if sample_tokens.shape[1] > 1:
+                    mtp_predictions = sample_tokens[:, 1:] # [Seq, Num_MTP]
             
-            # Trim predictions to match ground truth length
-            predictions = predictions[:len(ground_truth)]
-            confidences = confidences[:len(ground_truth)]
+            # CASE B: Output is Dict (Training logits)
+            elif isinstance(outputs, dict):
+                main_logits = outputs['main_logits'][idx]
+                main_predictions = torch.argmax(main_logits, dim=-1)
+                # Calculate confidence for main head
+                main_confidences = torch.softmax(main_logits, dim=-1).max(dim=-1)[0]
+                
+                mtp_logits = outputs.get('mtp_logits', None)
+                if mtp_logits is not None:
+                    mtp_preds_logits = mtp_logits[idx]
+                    mtp_predictions = torch.argmax(mtp_preds_logits, dim=-1)
+
+            # CASE C: Raw Logits Tensor
+            else:
+                main_logits = outputs[idx]
+                main_predictions = torch.argmax(main_logits, dim=-1)
+                main_confidences = torch.softmax(main_logits, dim=-1).max(dim=-1)[0]
+
+            # --- 2. DATA PREPARATION ---
+            # Slice to text only
+            start_pos = min(num_img_tokens, len(main_predictions))
+            text_main_preds = main_predictions[start_pos:]
             
-            # Get top-k predictions for alternative options
-            top_k = 3
-            top_probs, top_indices = torch.topk(torch.softmax(logits[:len(ground_truth)], dim=-1), top_k, dim=-1)
+            if main_confidences is not None:
+                text_confidences = main_confidences[start_pos:]
+            else:
+                text_confidences = None
+                
+            if mtp_predictions is not None:
+                text_mtp_preds = mtp_predictions[start_pos:]
+            else:
+                text_mtp_preds = None
+
+            ground_truth = input_ids[idx, 1:] # Shifted GT
             
-            # Create a larger canvas for better visualization
-            canvas_height = img_height + 600
-            
-            # Try to use a better font if available
+            # --- 3. SETUP CANVAS ---
+            # Determine canvas height based on sequence length
+            row_height = 25
+            header_height = 80
+            list_height = len(text_main_preds) * row_height
+            canvas_height = img_height + header_height + list_height + 50
+            canvas_width = max(img_width, 1100) # Ensure wide enough for MTP text
+
+            canvas = Image.new('RGB', (canvas_width, canvas_height), color=COLORS['bg'])
+            canvas.paste(base_img, (0, 0))
+            draw = ImageDraw.Draw(canvas)
+
+            # Fonts
             try:
-                title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
-                text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 13)
-                small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 11)
+                font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+                title_font = ImageFont.truetype(font_path, 18)
+                text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14) # Mono for alignment
             except:
                 title_font = ImageFont.load_default()
                 text_font = ImageFont.load_default()
-                small_font = ImageFont.load_default()
+
+            # --- 4. DRAWING ---
+            y = img_height + 15
             
-            # Calculate text content to determine canvas width
-            gt_line = "GT: "
-            for token_id in ground_truth[:min(20, len(ground_truth))]:
-                token_id_item = token_id.item()
-                if self.tokenizer:
-                    try:
-                        token_text = self.tokenizer.decode([token_id_item])
-                        token_text = token_text.replace('[CLS]', '').replace('[SEP]', '').replace('[PAD]', '').strip()
-                        if token_text:
-                            gt_line += f"[{token_text}] "
-                    except:
-                        gt_line += f"[ID:{token_id_item}] "
-                else:
-                    gt_line += f"[{token_id_item}] "
+            # Calculate Main Accuracy
+            valid_len = min(len(text_main_preds), len(ground_truth))
+            if valid_len > num_question_tokens:
+                matches = (text_main_preds[num_question_tokens:valid_len] == ground_truth[num_question_tokens:valid_len]).sum().item()
+                total = valid_len - num_question_tokens
+                acc = (matches / total) * 100
+            else:
+                acc = 0.0
+
+            draw.text((15, y), f"Prediction Analysis | Main Acc: {acc:.1f}%", fill=(255, 255, 255), font=title_font)
+            y += 35
             
-            pred_line = "PRED: "
-            for i, token_id in enumerate(predictions[:min(20, len(ground_truth))]):
-                token_id_item = token_id.item()
-                if self.tokenizer:
-                    try:
-                        token_text = self.tokenizer.decode([token_id_item])
-                        token_text = token_text.replace('[CLS]', '').replace('[SEP]', '').replace('[PAD]', '').strip()
-                        if token_text:
-                            pred_line += f"[{token_text}] "
-                    except:
-                        pred_line += f"[ID:{token_id_item}] "
-                else:
-                    pred_line += f"[{token_id_item}] "
+            # Column Headers
+            header_str = f"{'POS':<5} {'GT (TARGET)':<20} {'MAIN PRED':<20} {'MTP FUTURE PEEKS'}"
+            draw.text((15, y), header_str, fill=COLORS['text'], font=text_font)
+            y += 10
+            draw.line([(10, y), (canvas_width-10, y)], fill=COLORS['dim'], width=1)
+            y += 15
+
+            # Iterate Tokens
+            limit = min(40, len(text_main_preds)) # Don't draw infinite lines
             
-            # Use a temporary image to measure text
-            temp_img = Image.new('RGB', (1, 1))
-            temp_draw = ImageDraw.Draw(temp_img)
-            
-            try:
-                gt_width = temp_draw.textbbox((0, 0), gt_line, font=text_font)[2] - temp_draw.textbbox((0, 0), gt_line, font=text_font)[0]
-                pred_width = temp_draw.textbbox((0, 0), pred_line, font=text_font)[2] - temp_draw.textbbox((0, 0), pred_line, font=text_font)[0]
-            except:
-                gt_width = len(gt_line) * 8
-                pred_width = len(pred_line) * 8
-            
-            # Set canvas width
-            max_text_width = max(gt_width, pred_width)
-            min_canvas_width = img_width
-            required_width = max_text_width + 60
-            canvas_width = max(min_canvas_width, required_width)
-            
-            canvas = Image.new('RGB', (canvas_width, canvas_height), color=(15, 15, 15))
-            canvas.paste(img, (0, 0))
-            
-            draw = ImageDraw.Draw(canvas)
-            
-            y_offset = img_height + 15
-            
-            # Title section
-            draw.text((15, y_offset), f"NEXT TOKEN PREDICTION (Skip first {num_img_tokens} image tokens)", 
-                    fill=(100, 200, 255), font=title_font)
-            y_offset += 35
-            
-            # Ground truth sequence
-            draw.text((15, y_offset), "Ground Truth Sequence:", fill=(100, 255, 100), font=title_font)
-            y_offset += 28
-            draw.text((15, y_offset), gt_line, fill=(100, 255, 100), font=text_font)
-            y_offset += 28
-            
-            # Predicted sequence
-            draw.text((15, y_offset), "Predicted Sequence:", fill=(100, 150, 255), font=title_font)
-            y_offset += 28
-            draw.text((15, y_offset), pred_line, fill=(100, 150, 255), font=text_font)
-            y_offset += 35
-            
-            # Detailed position analysis
-            draw.text((15, y_offset), "Position-wise Analysis (First 10 text tokens):", 
-                    fill=(200, 200, 200), font=title_font)
-            y_offset += 28
-            
-            # Create position analysis table
-            for pos in range(min(10, len(predictions))):
-                pred_token = predictions[pos].item()
-                confidence = confidences[pos].item()
+            for pos in range(limit):
+                # 1. Main Head Logic
+                is_question = pos < num_question_tokens
                 
-                # Determine if prediction is correct
-                is_correct = False
+                # Get Strings
+                gt_str = "---"
                 if pos < len(ground_truth):
                     gt_token = ground_truth[pos].item()
-                    is_correct = (pred_token == gt_token)
+                    gt_str = self.tokenizer.decode([gt_token]).replace("Ġ", "").strip() or "␣"
                 
-                # Color based on correctness and confidence
-                if is_correct:
-                    status_color = (100, 255, 100)  # Green
-                    status_text = "✓"
-                elif confidence > 0.6:
-                    status_color = (255, 255, 100)  # Yellow
-                    status_text = "≈"
-                else:
-                    status_color = (255, 100, 100)  # Red
-                    status_text = "✗"
+                pred_token = text_main_preds[pos].item()
+                pred_str = self.tokenizer.decode([pred_token]).replace("Ġ", "").strip() or "␣"
                 
-                # Build position line (show actual position in sequence after image tokens)
-                actual_pos = num_img_tokens + pos
-                pos_line = f"[{actual_pos:3d}→{pos:2d}] {status_text} "
+                # Check Main Correctness
+                is_correct = (pos < len(ground_truth) and gt_token == pred_token)
+                main_color = COLORS['correct'] if is_correct else COLORS['incorrect']
+                if is_question: main_color = COLORS['dim']
                 
-                # Ground truth
-                if pos < len(ground_truth):
-                    gt_token = ground_truth[pos].item()
-                    if self.tokenizer:
-                        try:
-                            gt_text = self.tokenizer.decode([gt_token]).strip()
-                            pos_line += f"GT: '{gt_text}' | "
-                        except:
-                            pos_line += f"GT: ID{gt_token} | "
-                    else:
-                        pos_line += f"GT: ID{gt_token} | "
+                # Format Confidence
+                conf_str = ""
+                if text_confidences is not None:
+                    conf = text_confidences[pos].item()
+                    conf_str = f"({conf:.0%})"
+
+                # 2. MTP Logic (Build string)
+                mtp_str = ""
+                if text_mtp_preds is not None and pos < len(text_mtp_preds):
+                    current_futures = text_mtp_preds[pos] # [Num_Heads]
+                    futures_list = []
+                    
+                    for h_idx, token_id in enumerate(current_futures):
+                        f_word = self.tokenizer.decode([token_id.item()]).replace("Ġ", "").strip() or "␣"
+                        
+                        # Check Future Correctness
+                        # Head h (offset h+2) targets ground_truth[pos + h + 1]
+                        target_idx = pos + h_idx + 1
+                        is_fut_correct = False
+                        if target_idx < len(ground_truth):
+                            if token_id.item() == ground_truth[target_idx].item():
+                                is_fut_correct = True
+                        
+                        # We use a simple unicode mark for correctness in the string
+                        mark = "✓" if is_fut_correct else ""
+                        futures_list.append(f"+{h_idx+2}:{f_word}{mark}")
+                    
+                    mtp_str = " | ".join(futures_list)
+
+                # 3. Draw Line
+                # We draw piece by piece to handle colors
+                x = 15
                 
-                # Prediction with confidence
-                if self.tokenizer:
-                    try:
-                        pred_text = self.tokenizer.decode([pred_token]).strip()
-                        pos_line += f"PRED: '{pred_text}' ({confidence:.2%})"
-                    except:
-                        pos_line += f"PRED: ID{pred_token} ({confidence:.2%})"
-                else:
-                    pos_line += f"PRED: ID{pred_token} ({confidence:.2%})"
+                # Pos
+                draw.text((x, y), f"{pos:<5}", fill=COLORS['dim'], font=text_font)
+                x += 50 # Adjust based on font size
                 
-                draw.text((15, y_offset), pos_line, fill=status_color, font=small_font)
-                y_offset += 22
-            
-            # Add legend at the bottom
-            y_offset += 10
-            draw.text((15, y_offset), "Legend:", fill=(200, 200, 200), font=title_font)
-            y_offset += 22
-            draw.text((15, y_offset), "✓ Correct", fill=(100, 255, 100), font=small_font)
-            draw.text((250, y_offset), "≈ Confident (~60%+)", fill=(255, 255, 100), font=small_font)
-            draw.text((550, y_offset), "✗ Low confidence", fill=(255, 100, 100), font=small_font)
-            
-            # Calculate and display accuracy
-            y_offset += 30
-            accuracy = (predictions[:len(ground_truth)] == ground_truth).float().mean().item()
-            accuracy_color = (100, 255, 100) if accuracy > 0.7 else (255, 255, 100) if accuracy > 0.4 else (255, 100, 100)
-            draw.text((15, y_offset), f"Accuracy (Top-1): {accuracy:.2%} | Valid tokens: {len(ground_truth)}", 
-                    fill=accuracy_color, font=title_font)
-            
+                # GT
+                draw.text((x, y), f"{gt_str:<20}", fill=COLORS['dim'], font=text_font)
+                x += 180
+                
+                # Main Pred
+                main_display = f"{pred_str} {conf_str}"
+                draw.text((x, y), f"{main_display:<20}", fill=main_color, font=text_font)
+                x += 180
+                
+                # MTP
+                if mtp_str:
+                    draw.text((x, y), f"{mtp_str}", fill=COLORS['mtp_future'], font=text_font)
+                
+                y += row_height
+
             visualizations.append(canvas)
-        
+            
         return visualizations
     def generate_token_prediction_video(self, images, input_ids, outputs, step=0, fps=2, num_samples=1, num_img_tokens=196, num_question_tokens=4):
         """
-        Generate video with sharp text and clear spacing between tokens.
+        Generate video visualizing predictions using Jump/Flash logic.
+        Visualizes blocks of tokens predicted simultaneously by Main + MTP heads.
         """
         try:
             import imageio
-            import cv2
             import numpy as np
             from PIL import Image, ImageDraw, ImageFont
+            import os
+            import torch
         except ImportError:
-            print("Warning: libraries not installed. pip install imageio opencv-python numpy pillow")
+            print("Warning: libraries not installed. pip install imageio numpy pillow")
             return []
-        
+
         os.makedirs('./videos', exist_ok=True)
         num_samples = min(num_samples, images.size(0))
         saved_paths = []
-        # TODO Move this color config into the json loadable
-        # Enhanced Color Palette (High contrast for sharpness)
-        COLORS  = {
-            'overlay_bg': (20, 21, 26, 200),    # Deep Blue-Black (High opacity for text legibility)
-            'correct': (50, 255, 126),          # Neon Mint Green (Clear success indicator)
-            'incorrect': (255, 71, 87),         # Neon Coral Red (Clear error indicator)
-            'gt_text': (24, 220, 255),          # Electric Cyan (Ground Truth)
-            'pred_text': (197, 108, 240),       # Bright Lavender (Predictions)
-            'question': (255, 242, 0),          # Electric Yellow (Questions)
-            'header': (200, 214, 229),          # Cool White-Grey (Headers)
-            'vision_info': (255, 159, 243),     # Neon Pink (Metadata)
-            'separator': (255, 255, 255, 50)    # Subtle White (Dividers)
+
+        # Enhanced Color Palette from both versions
+        COLORS = {
+            'overlay_bg': (15, 15, 20, 240), 
+            'correct': (50, 255, 126),
+            'incorrect': (255, 71, 87),
+            'gt_text': (24, 220, 255),
+            'header': (140, 150, 170),
+            'jump_highlight': (255, 165, 2),  # The "Flash" color
+            'label_text': (160, 160, 160),
+            'separator': (255, 255, 255, 40)
         }
-        
-        # Spacing Configuration
-        TOKEN_PADDING = 12  # Space (pixels) between each token
-        LINE_HEIGHT = 35    # Vertical space between lines
-        
+
+        try:
+            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" 
+            if not os.path.exists(font_path): font_path = "arial.ttf"
+            header_font = ImageFont.truetype(font_path, 22)
+            text_font = ImageFont.truetype(font_path, 20)
+            label_font = ImageFont.truetype(font_path, 12)
+        except:
+            header_font = text_font = label_font = ImageFont.load_default()
+
         for sample_idx in range(num_samples):
             try:
-                idx = sample_idx
-                # Process Image
-                img_tensor = images[idx:idx+1]
+                img_tensor = images[sample_idx:sample_idx+1]
                 base_img = self.tensor_to_image(img_tensor).convert("RGBA")
-                img_width, img_height = base_img.size
                 
-                # Logic to handle model outputs
-                logits = outputs[idx]
-                predictions = torch.argmax(logits, dim=-1)
-                
-                # Slicing tokens
-                text_predictions = predictions[num_img_tokens:]
-                ground_truth = input_ids[idx, 1:] 
-                
-                # Setup Fonts - Prioritizing Bold for Sharpness
-                try:
-                    # Linux standard paths
-                    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-                    # Try to load; if fails, fall back to default
-                    main_font = ImageFont.truetype(font_path, 20)  # Larger size for sharpness
-                    header_font = ImageFont.truetype(font_path, 15)
-                    small_font = ImageFont.truetype(font_path, 13)
-                except:
-                    # Fallback if specific font not found
-                    main_font = header_font = small_font = ImageFont.load_default()
+                # Setup video dimensions
+                video_width, video_height = max(base_img.width, 1100), max(base_img.height, 850)
+                base_img = base_img.resize((video_width, video_height), Image.Resampling.LANCZOS)
 
-                # Video Dimensions
-                video_width = max(img_width, 900)  # Slightly wider to accommodate spaced text
-                video_height = max(img_height, 700)
-                
-                if base_img.size != (video_width, video_height):
-                    base_img = base_img.resize((video_width, video_height), Image.Resampling.LANCZOS)
+                # --- DATA PARSING ---
+                if isinstance(outputs, torch.Tensor):
+                    sample_tokens = outputs[sample_idx]
+                    main_preds = sample_tokens[:, 0]
+                    mtp_preds = sample_tokens[:, 1:] if sample_tokens.shape[1] > 1 else None
+                else:
+                    main_preds = torch.argmax(outputs['main_logits'][sample_idx], dim=-1)
+                    mtp_preds = torch.argmax(outputs['mtp_logits'][sample_idx], dim=-1) if 'mtp_logits' in outputs else None
 
+                # Logic alignment: Identify start of text after image tokens
+                start_pos = num_question_tokens # Index in the prediction sequence where we start comparing
+                ground_truth = input_ids[sample_idx, 1:] 
+                
+                # Determine jump size (1 main head + N MTP heads)
+                jump_size = 1 + (mtp_preds.shape[1] if mtp_preds is not None else 0)
+                
+                max_tokens = 24 # Number of tokens to visualize in the video
                 frames = []
-                max_tokens = min(30, len(text_predictions))
-                
-                # Pre-decode GT
-                gt_words = []
-                for token_id in ground_truth[:max_tokens]:
-                    try:
-                        # Replace special tokenizer chars with visual space or empty
-                        word = self.tokenizer.decode([token_id.item()]).replace("Ġ", "")
-                        if word.strip() == "": word = "␣" # Visual placeholder for pure space tokens
-                        gt_words.append(word)
-                    except:
-                        gt_words.append("?")
 
-                # Animation Loop
-                for pos in range(max_tokens):
-                    # 1. Base Frame
+                # --- PRE-DECODE GT WORDS ---
+                gt_words = []
+                for tid in ground_truth[:max_tokens + jump_size]:
+                    word = self.tokenizer.decode([tid.item()]).replace("Ġ", "").strip() or "␣"
+                    gt_words.append(word)
+
+                # --- FRAME GENERATION (JUMP LOGIC) ---
+                for current_jump_start in range(0, max_tokens, jump_size):
                     frame = base_img.copy()
-                    
-                    # 2. Overlay
                     overlay = Image.new('RGBA', (video_width, video_height), (0,0,0,0))
                     draw = ImageDraw.Draw(overlay)
                     
-                    # Panel Logic
-                    panel_h = int(video_height * 0.45)
+                    panel_h = 380
                     panel_y = video_height - panel_h
-                    
-                    # Background
                     draw.rectangle([(0, panel_y), (video_width, video_height)], fill=COLORS['overlay_bg'])
-                    draw.line([(0, panel_y), (video_width, panel_y)], fill=COLORS['separator'], width=2)
                     
-                    margin_x = 30
-                    current_y = panel_y + 25
-                    
-                    # --- HEADER ---
-                    draw.text((margin_x, current_y), f"Vision Tokens: {num_img_tokens}", fill=COLORS['vision_info'], font=small_font)
-                    
-                    # Accuracy
-                    if pos >= num_question_tokens:
-                        matches = 0
-                        count = 0
-                        for i in range(num_question_tokens, pos + 1):
-                            if i < len(ground_truth) and text_predictions[i] == ground_truth[i]:
-                                matches += 1
-                            count += 1
-                        acc = (matches / max(count, 1)) * 100
-                        acc_text = f"Accuracy: {acc:.1f}%"
-                        acc_color = COLORS['correct'] if acc > 70 else COLORS['incorrect']
-                        
-                        bbox = draw.textbbox((0,0), acc_text, font=header_font)
-                        draw.text((video_width - margin_x - (bbox[2]-bbox[0]), current_y), acc_text, fill=acc_color, font=header_font)
-                    
-                    current_y += 30
-                    
-                    # --- GROUND TRUTH ---
-                    draw.text((margin_x, current_y), "GROUND TRUTH:", fill=COLORS['header'], font=header_font)
-                    current_y += 25
-                    
+                    margin_x = 45
+                    curr_y = panel_y + 40
+
+                    # --- RENDER GROUND TRUTH ---
+                    draw.text((margin_x, curr_y), "GROUND TRUTH SEQUENCE", fill=COLORS['header'], font=header_font)
+                    curr_y += 40
                     gt_x = margin_x
-                    gt_line_y = current_y
-                    
-                    for i in range(min(pos + 5, len(gt_words))):
-                        word = gt_words[i]
-                        color = COLORS['question'] if i < num_question_tokens else COLORS['gt_text']
+                    for word in gt_words[:max_tokens]:
+                        draw.text((gt_x, curr_y), word, fill=COLORS['gt_text'], font=text_font)
+                        gt_x += draw.textbbox((0,0), word, font=text_font)[2] + 12
+
+                    curr_y += 60
+                    draw.line([(margin_x, curr_y), (video_width - margin_x, curr_y)], fill=COLORS['separator'], width=1)
+                    curr_y += 40
+
+                    # --- RENDER PREDICTIONS (THE FLASH) ---
+                    draw.text((margin_x, curr_y), f"MTP PREDICTION (Step {current_jump_start // jump_size + 1})", fill=COLORS['header'], font=header_font)
+                    curr_y += 60 
+                    line_x = margin_x
+
+                    # Draw tokens predicted so far, including the current "Jump"
+                    for i in range(current_jump_start + jump_size):
+                        if i >= max_tokens: break
                         
-                        draw.text((gt_x, gt_line_y), word, fill=color, font=main_font)
+                        # Calculate which block and which head this token belongs to
+                        block_idx = (i // jump_size) * jump_size
+                        offset = i % jump_size
                         
-                        # Spacing logic
-                        w_bbox = draw.textbbox((0,0), word, font=main_font)
-                        word_width = w_bbox[2] - w_bbox[0]
-                        gt_x += word_width + TOKEN_PADDING  # Add padding between tokens
-                        
-                        if gt_x > video_width - margin_x - 50:
-                            gt_x = margin_x
-                            gt_line_y += LINE_HEIGHT
-                            
-                    current_y = gt_line_y + 45
-                    
-                    # --- PREDICTIONS ---
-                    draw.text((margin_x, current_y), "MODEL PREDICTION:", fill=COLORS['header'], font=header_font)
-                    current_y += 25
-                    
-                    pred_x = margin_x
-                    pred_line_y = current_y
-                    
-                    for i in range(pos + 1):
-                        token_id = text_predictions[i].item()
-                        try:
-                            word = self.tokenizer.decode([token_id]).replace("Ġ", "")
-                            if word.strip() == "": word = "␣"
-                        except:
-                            word = "?"
-                            
-                        # Color Logic
-                        if i < num_question_tokens:
-                            color = COLORS['question']
+                        # Map to model output index
+                        actual_idx_in_preds = num_img_tokens + block_idx
+                        if actual_idx_in_preds >= len(main_preds): break
+
+                        if offset == 0:
+                            token_id = main_preds[actual_idx_in_preds].item()
+                            head_label = "Head1"
                         else:
-                            is_correct = (i < len(ground_truth) and token_id == ground_truth[i].item())
+                            token_id = mtp_preds[actual_idx_in_preds, offset - 1].item()
+                            head_label = f"Head{offset+1}"
+
+                        word = self.tokenizer.decode([token_id]).replace("Ġ", "").strip() or "␣"
+                        
+                        # Comparison logic
+                        gt_comp_idx = block_idx + offset
+                        is_correct = (gt_comp_idx < len(ground_truth) and token_id == ground_truth[gt_comp_idx].item())
+                        
+                        # Color logic: Current jump is Orange, previous are Green/Red
+                        if i >= current_jump_start:
+                            color = COLORS['jump_highlight']
+                        else:
                             color = COLORS['correct'] if is_correct else COLORS['incorrect']
-                        
-                        # Draw Text
-                        draw.text((pred_x, pred_line_y), word, fill=color, font=main_font)
-                        
-                        # Active Cursor Underline
-                        w_bbox = draw.textbbox((0,0), word, font=main_font)
-                        word_width = w_bbox[2] - w_bbox[0]
-                        
-                        if i == pos:
-                            draw.line([(pred_x, pred_line_y + 25), (pred_x + word_width, pred_line_y + 25)], 
-                                     fill=COLORS['separator'], width=3)
 
-                        # Advance X with spacing
-                        pred_x += word_width + TOKEN_PADDING
+                        # Render Head Label and Word
+                        w_width = draw.textbbox((0,0), word, font=text_font)[2]
                         
-                        # Wrap
-                        if pred_x > video_width - margin_x - 50:
-                            pred_x = margin_x
-                            pred_line_y += LINE_HEIGHT
+                        # Label (Head 1, 2...)
+                        draw.text((line_x, curr_y - 25), head_label, fill=COLORS['label_text'], font=label_font)
+                        # Word
+                        draw.text((line_x, curr_y), word, fill=color, font=text_font)
+                        
+                        line_x += max(w_width, 45) + 15
+                        
+                        # Simple wrapping
+                        if line_x > video_width - 60:
+                            line_x = margin_x
+                            curr_y += 80
 
-                    # 3. Save Frame
                     final_frame = Image.alpha_composite(frame, overlay)
                     frames.append(np.array(final_frame.convert("RGB")))
-                
-                # Write Video
+
+                # Save Video
                 if frames:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    video_path = f"./videos/token_pred_step{step}_sample{sample_idx}_{timestamp}.mp4"
-                    imageio.mimwrite(video_path, frames, fps=fps, codec='libx264', quality=9)
+                    video_path = f"./videos/prediction_jump_step{step}_s{sample_idx}.mp4"
+                    imageio.mimwrite(video_path, frames, fps=fps, codec='libx264')
                     saved_paths.append(video_path)
-                    print(f"✓ Saved video: {video_path}")
+                    print(f"✓ Generated Jump Prediction Video: {video_path}")
 
             except Exception as e:
-                print(f"Error processing sample {sample_idx}: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
+                print(f"Error in sample {sample_idx}: {e}")
+                import traceback; traceback.print_exc()
                 
         return saved_paths
     def train_epoch(self, epoch):
         self.model.train()
         total_loss = 0
         total_tokens = 0
+        num_batches=0
         
         pbar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}")
         for batch_idx, batch in enumerate(pbar):
-        # single batch overfitting code
+        # --------  single batch overfitting code --------
         # single_batch = next(iter(self.train_loader))
 
         # # Train on this single batch repeatedly
@@ -646,28 +613,15 @@ class BasicVLMTrainer:
             
             # Get model outputs
             #outputs = self.model(images, input_ids)
-            outputs = self.model(images, input_ids, attention_mask=attention_mask)
+            outputs_latent = self.model(images, input_ids, attention_mask=attention_mask)
             
-            # Prepare targets for loss calculation
-            # For next-token prediction:
-            # Input sequence to model: [IMG_TOKEN, text_0, text_1, ..., text_{n-1}]  (n+1 tokens total)
-            # Model output at pos i:   predicts the token that comes AFTER position i
-            # 
-            # So: output[0] (at IMG_TOKEN) → should predict text_0
-            #     output[1] (at text_0)    → should predict text_1
-            #     output[i]                → should predict text_i
-            #     output[n]                → should predict text_n (but we don't have this in input_ids)
-            #
-            # Therefore:
-            # - image_targets at pos 0:     -100 (ignore, image token has no language target)
-            # - text_targets at pos 1..n:   input_ids[1:n+1] (the next tokens)
-            # - pos n+1:                    ignored (no target available)
             
             num_img_tokens = 196
             B = input_ids.shape[0]
             seq_len = input_ids.shape[1]  # Original text sequence length
             
             # Create targets with proper shifting
+            # instead of ignoring this use this as a self supervision
             image_targets = torch.full((B, num_img_tokens), -100, device=self.device)  # [B, 1]
             text_targets = labels  # [B, seq_len-1] - next tokens for text positions
             
@@ -680,32 +634,62 @@ class BasicVLMTrainer:
             # We only compute loss for first seq_len positions (last position is discarded)
             # outputs_for_loss shape: [B, seq_len, vocab_size]
             # outputs_for_loss = outputs[:, :seq_len, :]
-            outputs_for_loss = outputs[:, :targets.shape[1], :]
-            assert outputs_for_loss.shape[0] == targets.shape[0], f"Batch size mismatch: {outputs_for_loss.shape[0]} vs {labels.shape[0]}"
-            assert outputs_for_loss.shape[1] == targets.shape[1], f"Sequence length mismatch: {outputs_for_loss.shape[1]} vs {labels.shape[1]}"
-            # for debugging
-            #print(input_ids[0], "input ids")
-            #print(targets[0], "tagrgets")
+            #outputs_for_loss = outputs[:, :targets.shape[1], :]
+            # B. Detach for Gradient Accumulation
+            d = outputs_latent.detach()
+            d.requires_grad = True
             
-            # Calculate loss
-            # This computes cross-entropy for:
-            # - Position 0 (image): loss ignored due to -100 target
-            # - Positions 1..seq_len-1: actual next-token prediction losses
-            loss = self.criterion(
-            outputs_for_loss.reshape(-1, outputs_for_loss.size(-1)),
-            targets.reshape(-1)  # targets are already shifted and padded properly
+            batch_loss = 0.0
+
+            # --- C. Main Head (Standard Prediction) ---
+            p_main = self.model.lm_head(d) # [B, 196 + seq_len, Vocab]
+            
+            # Main head predicts the immediate target at each position
+            # We compare p_main directly against targets
+            loss_main = self.criterion(
+                p_main.reshape(-1, p_main.size(-1)),
+                targets.reshape(-1)
             )
             
-            # for debugging
-            # Print output IDs (predictions) after loss calculation
-            output_ids = torch.argmax(outputs_for_loss, dim=-1)  # [B, seq_len]
+            loss_main.backward()
+            batch_loss += loss_main.item()
             
-            
-            #print(output_ids[0], "output ids")
+            # --- D. MTP Heads (Future Predictions) ---
+            for i, head in enumerate(self.model.mtp_heads):
+                # i=0 -> Head predicts t+2 (relative to input), which is Next Token + 1
+                # Since 'targets' already represents the "Next Token", 
+                # we need to shift targets by (i + 1) to get the future.
+                offset = i + 1 
+                
+                # Stop if offset exceeds sequence length
+                if offset >= targets.shape[1]:
+                    print("breaking because of the size issue")
+                    break
+                    
+                p_aux = head(d) # [B, 196 + seq_len, Vocab]
+                
+                # SLICING LOGIC:
+                # Prediction at pos 't' should match Target at pos 't + offset'
+                # Valid predictions: [0 : end - offset]
+                # Valid targets:     [offset : end]
+                
+                curr_logits = p_aux[:, :-offset, :]
+                curr_targets = targets[:, offset:]
+                
+                loss_aux = self.criterion(
+                    curr_logits.reshape(-1, curr_logits.size(-1)),
+                    curr_targets.reshape(-1)
+                )
+                
+                loss_aux.backward()
+                batch_loss += loss_aux.item()
 
-            # Backward pass
-            loss.backward()
-            
+            # --- E. Backbone Backward ---
+            # Push accumulated gradients from d.grad back into the frozen backbone
+            outputs_latent.backward(d.grad)
+
+
+
             # Check gradients on first batch of first epoch
             if epoch == 0 and batch_idx == 0:
                 print("\nChecking gradients after first backward pass...")
@@ -720,13 +704,14 @@ class BasicVLMTrainer:
             
             # Calculate token-level loss for logging
             batch_tokens = (targets != -100).sum().item()
-            batch_loss = loss.item() * batch_tokens
+            #batch_loss = loss.item() * batch_tokens
             
             total_loss += batch_loss
-            total_tokens += batch_tokens
+            num_batches+=1
+
             
             # Update progress bar
-            avg_loss = total_loss / max(total_tokens, 1)
+            avg_loss = total_loss / num_batches
             pbar.set_postfix({
                 'loss': f'{avg_loss:.4f}',
                 'lr': f'{self.scheduler.get_last_lr()[0]:.6f}'
@@ -734,19 +719,19 @@ class BasicVLMTrainer:
             
             # Log to tensorboard
             if self.log_tensorboard and batch_idx % 1000 == 0:
-                self.writer.add_scalar('train_loss_step', loss.item(), self.global_step)
+                self.writer.add_scalar('train_loss_step main head', loss_main.item(), self.global_step)
                 self.writer.add_scalar('learning_rate', self.scheduler.get_last_lr()[0], self.global_step)
                 
                 # Log gradient statistics
                 self.log_gradients(self.global_step)
                 self.log_weight_stats(self.global_step)
                 
-                # Log image predictions visualization (every 1000 steps)
+                #Log image predictions visualization (every 1000 steps)
                 try:
                     texts = batch.get('texts', None)
                     # Use original outputs (before slicing) for visualization
                     pred_images = self.visualize_predictions(
-                        images, input_ids, self.model(images, input_ids,attention_mask), 
+                        images, input_ids, self.latent_to_mtp_tokens(self.model(images, input_ids,attention_mask)), 
                         texts=texts, num_samples=2
                     )
                     for i, pred_img in enumerate(pred_images):
@@ -761,21 +746,39 @@ class BasicVLMTrainer:
                 
                 # # Generate and save prediction videos
                 # if self.global_step % 10 == 0:
+                # Generate and save prediction videos
+                # if self.global_step % 10 == 0:
                 try:
-                    # Generate token prediction video with GT overlay
+                    # --- FIX: OPTIMIZED INFERENCE ---
+                    
+                    # 1. Slice inputs first! 
+                    # Only process 1 sample instead of the full batch (e.g. 32).
+                    # This reduces memory usage by ~95%.
+                    img_viz = images[:1]
+                    ids_viz = input_ids[:1]
+                    mask_viz = attention_mask[:1]
+                    
+                    # 2. Disable Gradients
+                    # Prevents storing activations for backprop (saves 50%+ VRAM).
+                    with torch.no_grad():
+                        # Run model ONLY on the single sample
+                        outputs_viz = self.model(img_viz, ids_viz, attention_mask=mask_viz)
+                        tokens_viz = self.latent_to_mtp_tokens(outputs_viz)
+                    
+                    # 3. Generate Video
+                    # Pass the sliced, detached tensors
                     video_paths = self.generate_token_prediction_video(
-                        images, input_ids, self.model(images, input_ids, attention_mask),
-                        step=self.global_step, fps=2, num_samples=1
+                        img_viz, ids_viz, tokens_viz,
+                        step=batch_idx, fps=2, num_samples=1
                     )
                     
                     if video_paths:
                         print(f"✓ Saved {len(video_paths)} token prediction video(s)")
                 except Exception as e:
                     print(f"Warning: Could not generate videos: {e}")
-            
                 # self.global_step += 1
         
-        return total_loss / max(total_tokens, 1)
+        return total_loss / num_batches
     
     def validate(self, epoch=0):
         if self.val_loader is None:
@@ -928,6 +931,49 @@ class BasicVLMTrainer:
         self.best_val_loss = checkpoint['best_val_loss']
         print(f"Checkpoint loaded from {path}")
 
+    def latent_to_mtp_tokens(self, d):
+        """
+        Converts latent representations `d` into predicted tokens from
+        the Main Head and all MTP heads.
+        
+        Logic:
+        - Main Head output at pos t corresponds to token t+1.
+        - MTP Head[i] output at pos t corresponds to token t+(i+2).
+        
+        Args:
+            d: Latent representation tensor. 
+               Shape: [B, Seq_Len, Hidden_Size] (full sequence)
+               OR [B, 1, Hidden_Size] (current step for generation)
+            
+        Returns:
+            torch.Tensor: Stacked predictions of shape [B, Seq_Len, 1 + Num_MTP_Heads].
+                          The last dim contains [Main_Pred, MTP_1, MTP_2, ...].
+        """
+        # Ensure we don't track gradients for inference-style decoding
+        with torch.no_grad():
+            preds_list = []
+            
+            # --- 1. Main Head (Predicts Immediate Next Token) ---
+            # d -> lm_head -> logits -> argmax
+            logits_main = self.model.lm_head(d)  # [B, S, Vocab]
+            tokens_main = torch.argmax(logits_main, dim=-1)  # [B, S]
+            preds_list.append(tokens_main)
+            
+            # --- 2. MTP Heads (Predict Future Tokens) ---
+            # Iterate through heads in order (Head 0 -> t+2, Head 1 -> t+3, etc.)
+            for head in self.model.mtp_heads:
+                logits_aux = head(d)  # [B, S, Vocab]
+                tokens_aux = torch.argmax(logits_aux, dim=-1)  # [B, S]
+                preds_list.append(tokens_aux)
+            
+            # --- 3. Stack Results ---
+            # Stack along a new dimension to group predictions by timestep
+            # Final Shape: [B, Seq_Len, Num_Heads_Total]
+            all_tokens = torch.stack(preds_list, dim=-1)
+            
+            return all_tokens
+
+
 
 if __name__ == "__main__":
     
@@ -980,3 +1026,4 @@ if __name__ == "__main__":
     
     # Start training
     trainer.train()
+

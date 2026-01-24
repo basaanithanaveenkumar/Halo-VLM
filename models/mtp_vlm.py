@@ -4,24 +4,39 @@ from models.lm_head import LMHead
 from models.image_proj import ImageProjector
 import torch
 import torch.nn as nn
+from models.norm import RMSNorm
 
 from models.positional_embeddings import SinusoidalPositionalEmbedding
 class HaloVLM(nn.Module):
-    def __init__(self, vocab_size, emb_dim=512,num_mtp_heads=4):
+    def __init__(self, vocab_size, emb_dim=512, num_tokens=1,num_future_token=4,num_atten_heads= 32):
         super().__init__()
         self.vis_enc = VisTransformer(img_size=224, p_size=16, in_chans=3, emb_dim=emb_dim, num_layers=6, num_heads=16, mlp_dim=512, drop_fact=0.0)
-        self.decoder_transformer = DecoderTransformer(num_layers=10, emb_dim=emb_dim, num_heads=16, mlp_dim=1024, drop_fact=0.0)
+        self.decoder_transformer = DecoderTransformer(num_layers=16, emb_dim=emb_dim, num_heads=num_atten_heads, mlp_dim=1024, drop_fact=0.0)
         self.token_emb = nn.Embedding(vocab_size, emb_dim)
         self.pos_embed = nn.Embedding(5000, emb_dim)
-        self.layer_norm = nn.LayerNorm(emb_dim)
+        self.num_future_token = num_future_token
+        self.num_atten_heads = num_atten_heads
         self.lm_head = LMHead(hidden_size=emb_dim, vocab_size=vocab_size)
+        # Weight typing
+        # TODO Need to check with out weight typing
+        # weight typing reducees the no of parameters
+        self.lm_head.weight = self.token_emb.weight
         self.image_projector = ImageProjector(vision_dim=emb_dim, llm_dim=emb_dim)
-        self.mtp_heads = nn.ModuleList([
-            LMHead(hidden_size=emb_dim, vocab_size=vocab_size) 
-            for _ in range(num_mtp_heads-1)
-        ])
+        
 
-    def forward(self,images,input_ids,attention_mask):
+        # MTP layers
+        self.proj ==nn.ModuleList([nn.Linear(2* model_dim,model_dim) for _ in range(num_out_heads)])
+        
+        # why transformer encode and why not decoeder?
+
+        self.transformer_layer = nn.ModuleList([
+            nn.TransformerEncoderLayer(d_model=emb_dim, nhead=num_atten_heads, batch_first=True)
+            for _ in range(num_future_token)
+        ])
+        self.rmsnorm= RMSNorm(embed_dim)
+
+    def forward(self,images,input_ids,attention_mask,initial_hidden=None):
+        
         B = input_ids.size(0)
         device = input_ids.device
         seq_len = input_ids.size(1)
@@ -35,13 +50,49 @@ class HaloVLM(nn.Module):
         pos_emb = self.pos_embed(torch.arange(combined_embeds.size(1),device=device)).unsqueeze(0).repeat(B, 1, 1)
         combined_embeds = combined_embeds + pos_emb
         transformer_out=self.decoder_transformer(combined_embeds)
-        transformer_out = self.layer_norm(transformer_out)
-        return transformer_out
-        # head_outputs = []
-        # for head in self.mtp_heads:
-        #     head_outputs.append(head(transformer_out))
-        # final_out = torch.stack(head_outputs, dim=2)
-        # return final_out
+        if initial_hidden is None:
+            hidden_0 = text_embeds
+        else:
+            hidden_0 = initial_hidden
+        outputs = []
+        for i in range(0,seq_len-self.num_future_token):
+            hidden_prev = hidden_0[:,i,:]
+            logits_mtp=[]
+            for head_idx in range(self.num_future_token):
+                future_token_pos = i+(head_idx+1)
+                token_embeds = text_embeds[:,future_token_pos,:]
+                hidden_norm=self.rmsnorm(hidden_prev)
+                e_norm= self.rmsnorm(token_embeds)
+
+                comb_m=torch.cat([hidden_norm,e_norm],dim=1)
+                proj_mat=self.prok[head_idx](comb_m)
+
+                x = self.transformer_layer[head_idx](proj_mat.unsqueeze(1))
+                hidden_cur=x.squeeze(1)
+
+                logits = self.lm_head(hidden_cur)
+                logits_mtp.append(logits)
+                # for next iteration
+                h_prev = h_curr
+            logits_mtp=torch.stack([logits_mtp],dim=1)
+            outputs.append(logits_mtp)
+        final_out=torch.stack(outputs,dim=1)
+        return final_out
+
+        
+        # # for the multi token prediction
+        # # below code is the implementation from the paper https://arxiv.org/abs/2404.19737
+        # if self.num_tokens>1:
+        #     final_mtp_logits=[]
+        #     transformer_out_d=transformer_out.detach()
+        #     transformer_out_d.requires_grad = True
+        #     for head_idx in range(self.num_tokens):
+        #         logits=self.lm_heads[head_idx](transformer_out_d)
+        #         final_mtp_logits.append(logits)
+        #     #final_out=self.lm_head(transformer_out)
+        #     return final_mtp_logits
+        # else:
+        #     return self.lm_head(transformer_out)
 
 # write the code to test the forward pass of the model
 import torch
