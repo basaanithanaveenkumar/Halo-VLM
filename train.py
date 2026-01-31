@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
@@ -43,6 +45,7 @@ class BasicVLMTrainer:
         
         # Loss function - ignore padding tokens
         self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
+        self.n_cosine_loss =  nn.CosineEmbeddingLoss()
         
         # Setup logging
         self.log_tensorboard = log_tensorboard
@@ -616,6 +619,27 @@ class BasicVLMTrainer:
                 continue
                 
         return saved_paths
+    
+    # loss from original implementation nepa paper
+    def prediction_loss(self,h_in, h_out, shift: bool = True):
+        # detach target
+        h_in = h_in 
+
+        if shift:
+            # shift one step forward
+            p = h_out[:, :-1, :]   # predict next
+            z = h_in[:, 1:, :]     # target is next hidden state
+        else:
+            # same-position matching
+            p = h_out
+            z = h_in
+        # normalize
+        p = F.normalize(p, dim=-1)
+        z = F.normalize(z, dim=-1)
+
+        # 1-negative cosine similarity # making it cosing distance
+        loss = 1-(p * z).sum(dim=-1).mean()
+        return loss
     def train_epoch(self, epoch):
         self.model.train()
         total_loss = 0
@@ -646,7 +670,7 @@ class BasicVLMTrainer:
             
             # Get model outputs
             #outputs = self.model(images, input_ids)
-            outputs = self.model(images, input_ids, attention_mask=attention_mask)
+            outputs,vis_embed, transformer_out = self.model(images, input_ids, attention_mask=attention_mask)
             
             # Prepare targets for loss calculation
             # For next-token prediction:
@@ -668,19 +692,25 @@ class BasicVLMTrainer:
             seq_len = input_ids.shape[1]  # Original text sequence length
             
             # Create targets with proper shifting
-            image_targets = torch.full((B, num_img_tokens), -100, device=self.device)  # [B, 1]
+            #image_targets = torch.full((B, num_img_tokens), -100, device=self.device)  # [B, 1]
+            image_targets = vis_embed
             text_targets = labels  # [B, seq_len-1] - next tokens for text positions
             
             # Concatenate: [image_targets (ignore) | text_targets (actual predictions)]
             # Final shape: [B, 1 + (seq_len-1)] = [B, seq_len]
-            targets = torch.cat([image_targets, text_targets], dim=1)
+            #targets = torch.cat([image_targets, text_targets], dim=1)
             # use labels directly without concatenation and shifting as we have already added image token in the beginnning
-            #targets = text_targets
+            targets = text_targets
             # Model output shape: [B, 1 + seq_len, vocab_size]
             # We only compute loss for first seq_len positions (last position is discarded)
             # outputs_for_loss shape: [B, seq_len, vocab_size]
             # outputs_for_loss = outputs[:, :seq_len, :]
-            outputs_for_loss = outputs[:, :targets.shape[1], :]
+            
+            #outputs_for_loss = outputs[:, num_img_tokens:targets.shape[1], :]
+
+            outputs_for_loss = outputs[:, num_img_tokens:, :]
+            
+
             assert outputs_for_loss.shape[0] == targets.shape[0], f"Batch size mismatch: {outputs_for_loss.shape[0]} vs {labels.shape[0]}"
             assert outputs_for_loss.shape[1] == targets.shape[1], f"Sequence length mismatch: {outputs_for_loss.shape[1]} vs {labels.shape[1]}"
             # for debugging
@@ -691,7 +721,9 @@ class BasicVLMTrainer:
             # This computes cross-entropy for:
             # - Position 0 (image): loss ignored due to -100 target
             # - Positions 1..seq_len-1: actual next-token prediction losses
-            loss = self.criterion(
+            nepa_loss= self.prediction_loss(vis_embed,transformer_out[:, :num_img_tokens,:])
+            print(nepa_loss, "nepa loss")
+            loss = nepa_loss + self.criterion(
             outputs_for_loss.reshape(-1, outputs_for_loss.size(-1)),
             targets.reshape(-1)  # targets are already shifted and padded properly
             )
@@ -746,7 +778,7 @@ class BasicVLMTrainer:
                     texts = batch.get('texts', None)
                     # Use original outputs (before slicing) for visualization
                     pred_images = self.visualize_predictions(
-                        images, input_ids, self.model(images, input_ids,attention_mask), 
+                        images, input_ids, outputs, 
                         texts=texts, num_samples=2
                     )
                     for i, pred_img in enumerate(pred_images):
@@ -764,7 +796,7 @@ class BasicVLMTrainer:
                 try:
                     # Generate token prediction video with GT overlay
                     video_paths = self.generate_token_prediction_video(
-                        images, input_ids, self.model(images, input_ids, attention_mask),
+                        images, input_ids, outputs,
                         step=self.global_step, fps=2, num_samples=1
                     )
                     
@@ -938,7 +970,8 @@ if __name__ == "__main__":
     
     model = HaloVLM(
         vocab_size=vocab_size,
-        emb_dim=512
+        emb_dim=512,
+        return_inp_emb = True
     )
     
     # Get dataloaders (from your existing code)

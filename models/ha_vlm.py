@@ -7,9 +7,10 @@ import torch.nn as nn
 
 from models.positional_embeddings import SinusoidalPositionalEmbedding
 class HaloVLM(nn.Module):
-    def __init__(self, vocab_size, emb_dim=512):
+    def __init__(self, vocab_size, emb_dim=512,return_inp_emb=False):
         super().__init__()
-        self.vis_enc = VisTransformer(img_size=224, p_size=16, in_chans=3, emb_dim=emb_dim, num_layers=6, num_heads=16, mlp_dim=512, drop_fact=0.0)
+        self.return_inp_emb=return_inp_emb
+        self.vis_enc = VisTransformer(img_size=224, p_size=16, in_chans=3, emb_dim=emb_dim, num_layers=6, num_heads=16, mlp_dim=512, drop_fact=0.0,return_inp_emb=return_inp_emb)
         self.decoder_transformer = DecoderTransformer(num_layers=16, emb_dim=emb_dim, num_heads=32, mlp_dim=1024, drop_fact=0.0)
         self.token_emb = nn.Embedding(vocab_size, emb_dim)
         self.pos_embed = nn.Embedding(5000, emb_dim)
@@ -22,7 +23,11 @@ class HaloVLM(nn.Module):
         B = input_ids.size(0)
         device = input_ids.device
         seq_len = input_ids.size(1)
-        img_features = self.vis_enc(images)
+        if self.return_inp_emb:
+            img_features, vis_embed = self.vis_enc(images)
+        else:
+            img_features = self.vis_enc(images)
+            vis_embed = None
         img_proj = self.image_projector(img_features)
         #print(img_proj.shape, "image projection shape")
         B, num_img_tokens, D = img_proj.size()
@@ -34,7 +39,7 @@ class HaloVLM(nn.Module):
         transformer_out=self.decoder_transformer(combined_embeds)
         transformer_out = self.layer_norm(transformer_out)
         final_out=self.lm_head(transformer_out)
-        return final_out
+        return final_out, vis_embed, transformer_out
 
 # write the code to test the forward pass of the model
 import torch

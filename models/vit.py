@@ -17,7 +17,7 @@ class PatchEmb(nn.Module):
         return x
 
 class VisTransformer(nn.Module):
-    def __init__(self, img_size=224, p_size=16, in_chans=3, emb_dim=1024, num_layers=6, num_heads=8, mlp_dim=2048, drop_fact=0.0):
+    def __init__(self, img_size=224, p_size=16, in_chans=3, emb_dim=1024, num_layers=6, num_heads=8, mlp_dim=2048, drop_fact=0.0,return_inp_emb=True):
         super().__init__()
         self.patch_emb = PatchEmb(img_size=img_size, p_size=p_size, in_chans=in_chans, emb_dim=emb_dim)
         # learnable positional embeddings
@@ -27,15 +27,19 @@ class VisTransformer(nn.Module):
         self.lay_norm = nn.LayerNorm(emb_dim)
         self.transformer = nn.ModuleList([
             TransformerBlock(emb_dim=emb_dim, num_heads=num_heads, mlp_dim=mlp_dim, drop_fact=drop_fact,causal_mask=False)
-            for _ in range(num_layers)])      
+            for _ in range(num_layers)])  
+        self.return_inp_emb=return_inp_emb    
         
     def forward(self, x):
         x = self.patch_emb(x)  # [B, num_pat, emb_dim]
-        x = x + self.pos_embed  # Add positional embeddings
+        x_inp_embed = x + self.pos_embed  # Add positional embeddings
         x = self.dropout(x)
 
         for block in self.transformer:
             x = block(x)  # Apply each TransformerBlock sequentially # [B, num_pat, emb_dim]
         x = self.lay_norm(x)
-        return x
+        if self.return_inp_emb:
+            return x, x_inp_embed
+        else:
+            return x
         
