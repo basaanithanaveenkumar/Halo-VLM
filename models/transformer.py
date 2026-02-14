@@ -43,7 +43,7 @@ class SelfAttn(nn.Module):
 
 
 class HeadAttn(nn.Module):
-    def __init__(self, emb_dim=256,head_size=16,drop_fact=0.0,causal_mask=False,return_attn_weights=False):
+    def __init__(self, emb_dim=256,head_size=16,drop_fact=0.0,causal_mask=True,return_attn_weights=False):
         super().__init__()
         self.em_dim = emb_dim
         
@@ -84,7 +84,7 @@ class HeadAttn(nn.Module):
             return attn_output 
 
 class MultiHeadAttn(nn.Module):
-    def __init__(self, emb_dim=256,num_heads=8,drop_fact=0.0,causal_mask=False,return_attn_weights=False):
+    def __init__(self, emb_dim=256,num_heads=8,drop_fact=0.0,causal_mask=True,return_attn_weights=False):
         super().__init__()
         self.em_dim = emb_dim
         self.num_heads=num_heads
@@ -109,7 +109,7 @@ class MultiHeadAttn(nn.Module):
         return output
 
 class TransformerBlock(nn.Module):
-    def __init__(self, emb_dim=256, num_heads=8, mlp_dim=512, drop_fact=0.0,causal_mask=False):
+    def __init__(self, emb_dim=256, num_heads=8, mlp_dim=512, drop_fact=0.0,causal_mask=True):
         super().__init__()
         self.attn = MultiHeadAttn(emb_dim=emb_dim,num_heads=num_heads,drop_fact=drop_fact,causal_mask=causal_mask)
         # after input
@@ -124,7 +124,7 @@ class TransformerBlock(nn.Module):
         # )
         # TODO need to get this from config
         self.hid_dim = round(emb_dim * 1.2) # for expansion and contraction
-        self.moe = DeepseekMoE(emb_dim,self.hid_dim,num_router_exprts=16,best_k=4,num_shared_exprts=2)
+        self.moe = DeepseekMoE(emb_dim,self.hid_dim,num_router_exprts=4,best_k=2,num_shared_exprts=1)
         # before ffn
         self.norm2 = nn.LayerNorm(emb_dim)
         
