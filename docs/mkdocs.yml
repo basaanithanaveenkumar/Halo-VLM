@@ -1,7 +1,20 @@
-site_name: Hale-VLM
+site_name: Halo-VLM
 theme:
   name: material
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 nav:
   - Home: index.md
-  - Architecture: architecture.md
   - Getting Started: getting-started.md
+  - Architecture Overview: architecture-overview.md
+  - Architecture Reference: architecture.md
+  - Configuration: configuration.md
+  - Known Issues: known-issues.md
+  - Blog:
+      - blog/README.md
+      - blog/2026-09-28-three-ways-to-build-a-vlm.md
+  - Notes: halo_notes.md

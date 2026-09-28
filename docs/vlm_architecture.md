@@ -618,7 +618,7 @@ sequenceDiagram
     P-->>M: projected [B, N, D_llm]
     L->>L: embed_tokens(input_ids)
     L-->>M: text_embeds [B, seq, D_llm]
-    M->>M: replace &lt;image&gt; token span
+    M->>M: replace image-token span
     M-->>L: inputs_embeds, attention_mask
     L->>L: causal LM forward (+ LoRA)
     L-->>DL: loss, logits
