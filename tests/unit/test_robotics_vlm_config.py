@@ -6,7 +6,7 @@ from pathlib import Path
 
 from hale_vlm.config import load_vlm_config
 from hale_vlm.data.types import RoboticsVLMMode
-from hale_vlm.data.vla_catalog import SMOLVLA_SIMULATION_DATASETS
+from hale_vlm.data.vla.catalog import SMOLVLA_SIMULATION_DATASETS
 
 CONFIGS = Path(__file__).resolve().parents[2] / "configs"
 

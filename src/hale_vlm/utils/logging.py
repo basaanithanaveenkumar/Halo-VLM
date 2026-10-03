@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hale_vlm.core.config.run import RunConfig
+from hale_vlm.config.run import RunConfig
 from hale_vlm.registry import register_logger
 from hale_vlm.utils.logging_setup import setup_logging
 

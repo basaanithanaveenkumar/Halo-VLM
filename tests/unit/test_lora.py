@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from hale_vlm.config.sections.llm import LLMConfig
-from hale_vlm.llm.adapters import apply_lora, configure_llm_trainability
+from hale_vlm.language.hale.lora import apply_lora, configure_llm_trainability
 from tests.helpers.tiny_models import TinyCausalLM
 
 
@@ -13,7 +13,7 @@ def test_apply_lora_freezes_base_weights():
     model = TinyCausalLM()
     cfg = LLMConfig(use_lora=True, lora_r=4, lora_alpha=8, backbone="custom")
 
-    with patch("hale_vlm.llm.adapters.get_peft_model", wraps=__import__("peft").get_peft_model):
+    with patch("hale_vlm.language.hale.lora.get_peft_model", wraps=__import__("peft").get_peft_model):
         peft_model = apply_lora(model, cfg)
 
     trainable = [name for name, param in peft_model.named_parameters() if param.requires_grad]

@@ -7,10 +7,8 @@ import torch.nn as nn
 from hale_vlm.registry import register_model
 
 from hale_vlm.config.run import VLMRunConfig
-from hale_vlm.llm.adapters import iter_trainable_parameters
-from hale_vlm.llm.backbones import build_llm_backbone, resolve_llm_config
-from hale_vlm.vision.encoders import build_vision_tower
-from hale_vlm.vision.projector import build_projector
+from hale_vlm.language.hale import build_llm_backbone, iter_trainable_parameters, resolve_llm_config
+from hale_vlm.vision.hale import build_projector, build_vision_tower
 
 VLM_VARIANTS = ("qwen3_8b_vlm", "deepseek_r1_qwen_7b_vlm")
 
@@ -40,7 +38,7 @@ class HaleVLM(nn.Module):
 
     @property
     def num_image_tokens(self) -> int:
-        return self.cfg.model.vision.num_image_tokens
+        return self.cfg.model.vision.resolved_num_image_tokens()
 
     def trainable_parameters(self):
         """Parameters updated during fine-tuning: projector, optional vision, LoRA adapters."""
@@ -52,7 +50,7 @@ class HaleVLM(nn.Module):
     def _log_trainable_summary(self) -> None:
         from loguru import logger
 
-        from hale_vlm.llm.adapters import count_parameters
+        from hale_vlm.language.hale import count_parameters
 
         modules = [self.projector, self.llm.model]
         if not self.cfg.model.vision.freeze_encoder:
@@ -87,7 +85,7 @@ class HaleVLM(nn.Module):
     def encode_images(self, pixel_values: torch.Tensor) -> torch.Tensor:
         vision_features = self.vision(pixel_values)
         projected = self.projector(vision_features)
-        num_tokens = self.cfg.model.vision.num_image_tokens
+        num_tokens = self.cfg.model.vision.resolved_num_image_tokens()
         if projected.shape[1] > num_tokens:
             projected = projected[:, :num_tokens]
         return projected
@@ -180,6 +178,10 @@ def build_vlm(cfg: VLMRunConfig) -> HaleVLM:
     architecture = cfg.model.resolved_architecture(cfg.variant)
     if architecture == "hale":
         return HaleVLM.from_config(cfg)
+    if architecture == "gwm_vla":
+        from hale_vlm.models.vla.factory import build_vla_model
+
+        return build_vla_model(cfg)
     from hale_vlm.models.scratch.factory import build_scratch_vlm
 
     return build_scratch_vlm(cfg)

@@ -1,7 +1,7 @@
 import torch
 
 from hale_vlm.config.sections.vision import VisionConfig
-from hale_vlm.vision.projector import build_projector
+from hale_vlm.vision.hale import build_projector
 
 
 def test_projector_shapes():

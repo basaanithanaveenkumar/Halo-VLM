@@ -1,16 +1,33 @@
-"""VLM-specific data configuration."""
-
-from __future__ import annotations
-
 from typing import Literal
 
-from hale_vlm.core.config.sections.data import DataConfig
 from pydantic import Field
 
-from hale_vlm.data.types import RoboticsVLMMode
+from hale_vlm.config.sections.common import StrictModel
+from hale_vlm.data.types.bridge import RoboticsVLMMode
+
+
+class DataConfig(StrictModel):
+    """Generic dataset settings (text LM defaults)."""
+
+    source: Literal["huggingface", "overfit"] = "huggingface"
+    dataset: str = "Salesforce/wikitext"
+    subset: str | None = "wikitext-2-raw-v1"
+    train_split: str = "train"
+    val_split: str = "validation"
+    text_field: str = "text"
+    cache_dir: str | None = None
+    tokenizer_name: str = "gpt2"
+    train_size: int | None = None
+    val_size: int | None = None
+    overfit_text: str | None = None
+    n_overfit_copies: int = 64
+    add_special_tokens: bool = False
+    stride_words: int = 10
 
 
 class VLMDataConfig(DataConfig):
+    """VLM-specific data configuration."""
+
     source: Literal[
         "huggingface",
         "overfit",
@@ -21,7 +38,6 @@ class VLMDataConfig(DataConfig):
     ] = "huggingface"
     registry_stage: Literal["all", "vision", "video", "context"] = "all"
     registry_datasets: list[str] = Field(default_factory=list)
-    # SmolVLA robotics registry (can also feed VLM training via robotics_vlm_mode)
     vla_registry_stage: Literal["all", "community", "simulation", "real_world"] = "all"
     vla_registry_datasets: list[str] = Field(default_factory=list)
     robotics_vlm_mode: RoboticsVLMMode = RoboticsVLMMode.OFF
@@ -32,16 +48,16 @@ class VLMDataConfig(DataConfig):
 
     def model_post_init(self, __context) -> None:
         if not self.registry_datasets:
-            from hale_vlm.data.catalog import SMOLVLM_ALL_DATASETS
+            from hale_vlm.data.vlm.catalog import SMOLVLM_ALL_DATASETS
 
             self.registry_datasets = list(SMOLVLM_ALL_DATASETS)
         if not self.vla_registry_datasets:
-            from hale_vlm.data.vla_catalog import SMOLVLA_ALL_DATASETS
+            from hale_vlm.data.vla.catalog import SMOLVLA_ALL_DATASETS
 
             self.vla_registry_datasets = list(SMOLVLA_ALL_DATASETS)
 
     def resolved_registry_datasets(self) -> list[str]:
-        from hale_vlm.data.catalog import (
+        from hale_vlm.data.vlm.catalog import (
             SMOLVLM_ALL_DATASETS,
             SMOLVLM_CONTEXT_DATASETS,
             SMOLVLM_VIDEO_DATASETS,
@@ -59,7 +75,7 @@ class VLMDataConfig(DataConfig):
         return self.registry_datasets
 
     def resolved_vla_registry_datasets(self) -> list[str]:
-        from hale_vlm.data.vla_catalog import (
+        from hale_vlm.data.vla.catalog import (
             SMOLVLA_ALL_DATASETS,
             SMOLVLA_COMMUNITY_DATASETS,
             SMOLVLA_REAL_WORLD_DATASETS,

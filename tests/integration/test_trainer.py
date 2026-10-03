@@ -9,8 +9,8 @@ import pytest
 from hale_vlm.registry import get_trainer
 
 from hale_vlm.config import load_vlm_config
-from hale_vlm.data.multimodal import MultimodalDataModule
-from hale_vlm.llm.adapters import iter_trainable_parameters
+from hale_vlm.data.vlm.multimodal import MultimodalDataModule
+from hale_vlm.language.hale.lora import iter_trainable_parameters
 from hale_vlm.models.vlm import HaleVLM
 from hale_vlm.training.evaluator import VLMEvaluator
 from tests.helpers.tiny_models import TinyCausalLM, TinyTokenizer, TinyVisionModel
@@ -22,19 +22,19 @@ CONFIGS = Path(__file__).resolve().parents[2] / "configs"
 def hf_mocks():
     with (
         patch(
-            "hale_vlm.vision.encoders.SiglipVisionModel.from_pretrained",
+            "hale_vlm.vision.hale.tower.SiglipVisionModel.from_pretrained",
             TinyVisionModel.from_pretrained,
         ),
         patch(
-            "hale_vlm.llm.backbones.AutoModelForCausalLM.from_pretrained",
+            "hale_vlm.language.hale.backbone.AutoModelForCausalLM.from_pretrained",
             TinyCausalLM.from_pretrained,
         ),
         patch(
-            "hale_vlm.llm.backbones.AutoTokenizer.from_pretrained",
+            "hale_vlm.language.hale.backbone.AutoTokenizer.from_pretrained",
             lambda *_args, **_kwargs: TinyTokenizer(),
         ),
         patch(
-            "hale_vlm.data.multimodal.AutoTokenizer.from_pretrained",
+            "hale_vlm.data.vlm.multimodal.AutoTokenizer.from_pretrained",
             lambda *_args, **_kwargs: TinyTokenizer(),
         ),
     ):

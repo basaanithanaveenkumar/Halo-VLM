@@ -1,6 +1,6 @@
 from typing import Literal
 
-from hale_vlm.core.config.sections.common import StrictModel
+from hale_vlm.config.sections.common import StrictModel
 
 
 class ScratchConfig(StrictModel):

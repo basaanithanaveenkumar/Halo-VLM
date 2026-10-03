@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from hale_vlm.registry import register_loss
 
 from hale_vlm.models.scratch.factory import SCRATCH_VARIANTS
+from hale_vlm.models.vla.factory import VLA_VARIANTS
 from hale_vlm.models.vlm import VLM_VARIANTS
 
 
@@ -47,8 +48,23 @@ def _scratch_vlm_loss(model, batch: dict) -> torch.Tensor:
     )
 
 
+def _gwm_vla_loss(model, batch: dict) -> torch.Tensor:
+    losses = model.compute_losses(
+        multi_view_images=batch["multi_view_images"],
+        next_multi_view_images=batch["next_multi_view_images"],
+        input_ids=batch["input_ids"],
+        proprio=batch["proprio"],
+        actions=batch["actions"],
+        attention_mask=batch.get("attention_mask"),
+    )
+    return losses.total
+
+
 for _variant in VLM_VARIANTS:
     register_loss(_variant)(_hale_vlm_loss)
 
 for _variant in SCRATCH_VARIANTS:
     register_loss(_variant)(_scratch_vlm_loss)
+
+for _variant in VLA_VARIANTS:
+    register_loss(_variant)(_gwm_vla_loss)

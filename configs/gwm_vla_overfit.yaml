@@ -1,0 +1,29 @@
+variant: gwm_vla
+model:
+  architecture: gwm_vla
+  gwm:
+    geometry_backend: local
+    num_views: 2
+    target_view: wrist
+    freeze_geometry_encoder: true
+    embed_dim: 256
+    action_horizon: 4
+    action_dim: 7
+    proprio_dim: 8
+    world_loss_weight: 0.1
+    instruction_vocab_size: 512
+train:
+  backend: vla
+  steps: 500
+  batch_size: 2
+  lr: 1.0e-4
+  resume: false
+data:
+  source: overfit
+  overfit_text: "Pick up the red cube and place it in the box."
+  n_overfit_copies: 16
+logging:
+  backend: noop
+  tensorboard: false
+experiment:
+  enabled: false

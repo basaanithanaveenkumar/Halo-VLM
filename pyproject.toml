@@ -37,6 +37,7 @@ scratch = [
     "pandas>=2.3.3",
 ]
 cuda = []
+vla = []
 viz = ["tensorboard>=2.20.0"]
 
 [project.scripts]

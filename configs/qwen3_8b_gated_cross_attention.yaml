@@ -1,0 +1,15 @@
+# Qwen3-8B + SigLIP with a Flamingo-style gated cross-attention projector.
+# Learned latents read the SigLIP patches through tanh-gated cross-attention.
+inherits: base.yaml
+variant: qwen3_8b_vlm
+model:
+  vision:
+    projector_type: gated_cross_attention
+    gated_cross_attention:
+      num_latents: 64
+      hidden_dim: 768
+      num_layers: 2
+      num_heads: 12
+      ffn_mult: 4
+      dropout: 0.0
+      gate_init: 1.0            # 0.0 = Flamingo identity start (image enters as gates open)

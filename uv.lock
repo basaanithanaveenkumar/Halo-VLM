@@ -1164,7 +1164,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "transformers", specifier = ">=5.16.0" },
 ]
-provides-extras = ["dev", "test", "docs", "scratch", "cuda", "viz"]
+provides-extras = ["dev", "test", "docs", "scratch", "cuda", "vla", "viz"]
 
 [[package]]
 name = "hf-xet"

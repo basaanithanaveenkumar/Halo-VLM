@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from hale_vlm.config import load_vlm_config
-from hale_vlm.data.multimodal import MultimodalDataModule
+from hale_vlm.data.vlm.multimodal import MultimodalDataModule
 from hale_vlm.models.scratch.halo_vlm import HaloVLM
 from hale_vlm.models.vlm import build_vlm
 from tests.helpers.tiny_models import TinyCausalLM, TinyTokenizer, TinyVisionModel
@@ -28,19 +28,19 @@ def scratch_tokenizer():
 def hale_mocks():
     with (
         patch(
-            "hale_vlm.vision.encoders.SiglipVisionModel.from_pretrained",
+            "hale_vlm.vision.hale.tower.SiglipVisionModel.from_pretrained",
             TinyVisionModel.from_pretrained,
         ),
         patch(
-            "hale_vlm.llm.backbones.AutoModelForCausalLM.from_pretrained",
+            "hale_vlm.language.hale.backbone.AutoModelForCausalLM.from_pretrained",
             TinyCausalLM.from_pretrained,
         ),
         patch(
-            "hale_vlm.llm.backbones.AutoTokenizer.from_pretrained",
+            "hale_vlm.language.hale.backbone.AutoTokenizer.from_pretrained",
             lambda *_args, **_kwargs: TinyTokenizer(),
         ),
         patch(
-            "hale_vlm.data.multimodal.AutoTokenizer.from_pretrained",
+            "hale_vlm.data.vlm.multimodal.AutoTokenizer.from_pretrained",
             lambda *_args, **_kwargs: TinyTokenizer(),
         ),
     ):
@@ -50,7 +50,7 @@ def hale_mocks():
 @pytest.mark.smoke
 def test_scratch_overfit_batch_uses_images_key(scratch_tokenizer):
     with patch(
-        "hale_vlm.data.multimodal.AutoTokenizer.from_pretrained",
+        "hale_vlm.data.vlm.multimodal.AutoTokenizer.from_pretrained",
         lambda *_args, **_kwargs: scratch_tokenizer,
     ):
         cfg = load_vlm_config(CONFIGS / "halo_moe_overfit.yaml")
@@ -76,7 +76,7 @@ def test_hale_overfit_batch_uses_pixel_values_key(hale_mocks):
 @pytest.mark.smoke
 def test_scratch_overfit_training_step(scratch_tokenizer):
     with patch(
-        "hale_vlm.data.multimodal.AutoTokenizer.from_pretrained",
+        "hale_vlm.data.vlm.multimodal.AutoTokenizer.from_pretrained",
         lambda *_args, **_kwargs: scratch_tokenizer,
     ):
         cfg = load_vlm_config(CONFIGS / "halo_moe_overfit.yaml")

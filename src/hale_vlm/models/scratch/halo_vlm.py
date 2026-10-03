@@ -10,10 +10,12 @@ import torch.nn as nn
 from torch.nn import Parameter
 
 from hale_vlm.config.run import VLMRunConfig
-from hale_vlm.models.scratch.components.image_proj import ImageProjector
 from hale_vlm.models.scratch.components.lm_head import LMHead
 from hale_vlm.models.scratch.components.transformer import DecoderTransformer
-from hale_vlm.models.scratch.components.vit import VisTransformer
+from hale_vlm.vision.config import TOKEN_CONNECTOR_TYPES, VisionConfig
+from hale_vlm.vision.connectors import build_vision_connector
+from hale_vlm.vision.scratch.projector import ImageProjector
+from hale_vlm.vision.scratch.vit import VisTransformer
 
 
 class HaloVLM(nn.Module):
@@ -32,6 +34,7 @@ class HaloVLM(nn.Module):
         vit_heads: int = 16,
         decoder_layers: int = 16,
         decoder_heads: int = 32,
+        vision_cfg: VisionConfig | None = None,
     ) -> None:
         super().__init__()
         self.embed_dim = emb_dim
@@ -57,7 +60,11 @@ class HaloVLM(nn.Module):
         self.pos_embed = nn.Embedding(5000, emb_dim)
         self.layer_norm = nn.LayerNorm(emb_dim)
         self.lm_head = LMHead(hidden_size=emb_dim, vocab_size=vocab_size)
-        self.image_projector = ImageProjector(vision_dim=emb_dim, llm_dim=emb_dim)
+        if vision_cfg is not None and vision_cfg.projector_type in TOKEN_CONNECTOR_TYPES:
+            self.image_projector = build_vision_connector(emb_dim, emb_dim, vision_cfg)
+            self._num_image_tokens = vision_cfg.resolved_num_image_tokens()
+        else:
+            self.image_projector = ImageProjector(vision_dim=emb_dim, llm_dim=emb_dim)
 
     @property
     def num_image_tokens(self) -> int:
@@ -100,4 +107,5 @@ class HaloVLM(nn.Module):
             vit_heads=scratch.vit_num_heads,
             decoder_layers=scratch.decoder_num_layers,
             decoder_heads=scratch.decoder_num_heads,
+            vision_cfg=cfg.model.vision,
         )

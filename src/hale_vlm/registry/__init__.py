@@ -17,6 +17,7 @@ from hale_vlm.registry.plugins import (
     register_model,
     register_trainer,
 )
+from hale_vlm.rl.factory import get_rl_technique, register_rl_technique
 
 __all__ = [
     "NamedRegistry",
@@ -25,6 +26,7 @@ __all__ = [
     "get_dataset",
     "get_loss",
     "get_model",
+    "get_rl_technique",
     "get_trainer",
     "get_variant",
     "list_datasets",
@@ -33,5 +35,6 @@ __all__ = [
     "register_logger",
     "register_loss",
     "register_model",
+    "register_rl_technique",
     "register_trainer",
 ]

@@ -1,16 +1,5 @@
-from typing import Literal
+"""Vision configuration shared by Hale and scratch model paths."""
 
-from hale_vlm.core.config.sections.common import StrictModel
+from hale_vlm.vision.config import GatedCrossAttentionConfig, QFormerConfig, VisionConfig
 
-
-class VisionConfig(StrictModel):
-    """Vision tower and projector settings."""
-
-    encoder: Literal["siglip", "clip"] = "siglip"
-    model_id: str = "google/siglip-base-patch16-224"
-    image_size: int = 224
-    freeze_encoder: bool = True
-    projector_type: Literal["mlp", "linear"] = "mlp"
-    projector_hidden_dim: int | None = None
-    projector_dropout: float = 0.0
-    num_image_tokens: int = 256
+__all__ = ["GatedCrossAttentionConfig", "QFormerConfig", "VisionConfig"]

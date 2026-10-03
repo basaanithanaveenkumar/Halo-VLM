@@ -35,6 +35,15 @@ uv run hale-vlm-chat configs/base.yaml --image path/to/image.jpg
 uv run hale-vlm-train configs/halo_moe_overfit.yaml
 ```
 
+## Vision projectors
+
+`model.vision.projector_type` selects how vision features reach the LLM: `mlp`, `linear`, `qformer` (BLIP-2 style learned queries) or
+`gated_cross_attention` (Flamingo style). See [docs/vision_connectors.md](docs/vision_connectors.md).
+
+```bash
+uv run hale-vlm-train configs/halo_moe_qformer_overfit.yaml
+```
+
 ## Package layout
 
 ```text

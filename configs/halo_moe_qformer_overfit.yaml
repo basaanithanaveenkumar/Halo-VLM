@@ -1,0 +1,11 @@
+# Scratch HaloVLM (custom ViT + MoE decoder) with a Q-Former projector: 196 patches -> 16 tokens.
+inherits: halo_moe_overfit.yaml
+variant: halo_vlm_moe
+model:
+  vision:
+    projector_type: qformer
+    qformer:
+      num_queries: 16
+      hidden_dim: 128
+      num_layers: 2
+      num_heads: 4

@@ -6,15 +6,15 @@ from unittest.mock import patch
 
 import pytest
 
-from hale_vlm.data.catalog import (
+from hale_vlm.data.vlm.catalog import (
     SMOLVLM_ALL_DATASETS,
     SMOLVLM_CONTEXT_DATASETS,
     SMOLVLM_REJECTED_DATASETS,
     SMOLVLM_VIDEO_DATASETS,
     SMOLVLM_VISION_DATASETS,
 )
-from hale_vlm.data.registry import build_dataset, list_datasets
-from hale_vlm.data.sequential import SequentialMixConfig, SequentialMultiDatasetStream
+from hale_vlm.data.vlm.registry import build_dataset, list_datasets
+from hale_vlm.data.vlm.sequential import SequentialMixConfig, SequentialMultiDatasetStream
 from hale_vlm.data.types import Modality, TrainingStage, VLMSample
 
 
@@ -39,7 +39,7 @@ class _FakeAdapter:
 
 @pytest.mark.smoke
 def test_builtin_registry_lists_smolvlm_datasets():
-    import hale_vlm.data.datasets.builtin  # noqa: F401
+    import hale_vlm.data.vlm.datasets.builtin  # noqa: F401
 
     names = list_datasets(enabled_only=True)
     assert len(names) == len(SMOLVLM_ALL_DATASETS)
@@ -50,7 +50,7 @@ def test_builtin_registry_lists_smolvlm_datasets():
 
 
 def test_rejected_smoltalk_is_registered_but_disabled():
-    import hale_vlm.data.datasets.builtin  # noqa: F401
+    import hale_vlm.data.vlm.datasets.builtin  # noqa: F401
 
     rejected = list_datasets(stage=TrainingStage.REJECTED, enabled_only=False)
     assert rejected == ["smoltalk"]
@@ -85,7 +85,7 @@ def test_sequential_stream_order_and_prefetch():
         )
     )
 
-    with patch("hale_vlm.data.sequential.build_dataset", side_effect=_build):
+    with patch("hale_vlm.data.vlm.sequential.build_dataset", side_effect=_build):
         samples = list(stream)
 
     assert [s.dataset for s in samples] == ["fake", "fake", "fake"]
@@ -94,7 +94,7 @@ def test_sequential_stream_order_and_prefetch():
 
 
 def test_build_dataset_returns_video_adapter():
-    import hale_vlm.data.datasets.builtin  # noqa: F401
+    import hale_vlm.data.vlm.datasets.builtin  # noqa: F401
 
     adapter = build_dataset("finevideo")
     assert adapter.spec.modality == Modality.VIDEO

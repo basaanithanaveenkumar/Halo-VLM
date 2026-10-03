@@ -1,0 +1,15 @@
+# Qwen3-8B + SigLIP with a Q-Former as the vision -> LLM projector (BLIP-2 style).
+# The LLM sees `qformer.num_queries` image tokens instead of one per SigLIP patch.
+inherits: base.yaml
+variant: qwen3_8b_vlm
+model:
+  vision:
+    projector_type: qformer
+    qformer:
+      num_queries: 32
+      hidden_dim: 768
+      num_layers: 2
+      num_heads: 12
+      cross_attention_freq: 1   # 2 = BLIP-2 style (cross-attend every other layer)
+      ffn_mult: 4
+      dropout: 0.0

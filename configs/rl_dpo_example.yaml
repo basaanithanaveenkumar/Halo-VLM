@@ -1,0 +1,7 @@
+inherits: base.yaml
+variant: qwen3_8b_vlm
+rl:
+  technique: dpo
+  beta: 0.1
+train:
+  lr: 1.0e-6

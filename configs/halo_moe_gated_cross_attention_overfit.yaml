@@ -1,0 +1,12 @@
+# Scratch HaloVLM with a gated cross-attention projector: 196 patches -> 16 tokens.
+inherits: halo_moe_overfit.yaml
+variant: halo_vlm_moe
+model:
+  vision:
+    projector_type: gated_cross_attention
+    gated_cross_attention:
+      num_latents: 16
+      hidden_dim: 128
+      num_layers: 2
+      num_heads: 4
+      gate_init: 1.0

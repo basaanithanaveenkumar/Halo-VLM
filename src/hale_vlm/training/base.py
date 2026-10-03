@@ -9,11 +9,12 @@ import torch
 from loguru import logger
 from tqdm import tqdm
 
-from hale_vlm.core.config.experiment import apply_experiment_layout
-from hale_vlm.core.config.run import RunConfig
+from hale_vlm.config.experiment import apply_experiment_layout
+from hale_vlm.config.run import RunConfig
 from hale_vlm.utils.logging_setup import setup_logging
 from hale_vlm.utils.optim import build_optimizer
 from hale_vlm.registry import build_logger, get_loss, get_trainer, get_variant, register_trainer
+from hale_vlm.rl.factory import build_rl_technique
 from hale_vlm.utils.runtime.checkpoint import CheckpointStore
 from hale_vlm.utils.runtime.device import get_device
 from hale_vlm.utils.runtime.tensors import count_parameters, log_model_summary, move_batch_to_device
@@ -68,6 +69,7 @@ class Trainer:
         self.model = None
         self.opt = None
         self.loss_fn = None
+        self.rl_technique = None
         self.logger = None
         self.losses: list[float] = []
         self.global_step = 0
@@ -97,6 +99,7 @@ class Trainer:
         vocab_size = len(self.tokenizer)
         model_cls = get_variant(cfg.variant)
         self.loss_fn = get_loss(cfg.variant)
+        self.rl_technique = build_rl_technique(cfg)
         self.model = model_cls(vocab_size=vocab_size, cfg=cfg).to(self.device)
         n_params = count_parameters(self.model)
         self.model = wrap_model_parallel(self.model, self.dist_config, self.device)
@@ -113,12 +116,13 @@ class Trainer:
 
         if is_main_process(self.dist_config):
             logger.info(
-                "starting train variant={} device={} epochs={} steps={} lr={}",
+                "starting train variant={} device={} epochs={} steps={} lr={} rl={}",
                 cfg.variant,
                 self.device,
                 n_epochs,
                 total_steps,
                 cfg.train.lr,
+                cfg.rl.technique,
             )
 
         self.opt = build_optimizer(
@@ -212,28 +216,32 @@ class Trainer:
                 if self.global_step >= total_steps:
                     break
                 batch = move_batch_to_device(batch, self.device)
-                loss = self.loss_fn(self.model, batch)
+                step = self.rl_technique.training_step(
+                    self.model,
+                    batch,
+                    loss_fn=self.loss_fn,
+                    optimizer=self.opt,
+                    grad_clip=cfg.train.grad_clip,
+                )
+                loss = step.loss
                 if not torch.isfinite(loss):
                     raise FloatingPointError(f"non-finite loss at step {self.global_step}")
 
-                self.opt.zero_grad(set_to_none=True)
-                loss.backward()
-                grad_norm = torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(), cfg.train.grad_clip
-                )
-                self.opt.step()
+                grad_norm = step.metrics.get("grad_norm", 0.0)
                 lr = self.opt.param_groups[0]["lr"]
                 self.losses.append(loss.item())
                 epoch_losses.append(loss.item())
-                self.logger.log_scalars(
-                    self.global_step,
-                    {
-                        "train/loss": loss.item(),
-                        "train/lr": lr,
-                        "train/grad_norm": float(grad_norm),
-                        "train/epoch": float(epoch),
-                    },
-                )
+                log_payload = {
+                    "train/loss": loss.item(),
+                    "train/lr": lr,
+                    "train/grad_norm": float(grad_norm),
+                    "train/epoch": float(epoch),
+                    "train/rl_technique": float(cfg.rl.enabled()),
+                }
+                for key, value in step.metrics.items():
+                    if key != "grad_norm":
+                        log_payload[f"rl/{key}"] = value
+                self.logger.log_scalars(self.global_step, log_payload)
                 pbar.set_postfix(loss=f"{loss.item():.4f}")
                 self.global_step += 1
                 self._maybe_visualize(tag=f"step{self.global_step}")

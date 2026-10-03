@@ -964,7 +964,7 @@ class ScratchVLMTrainer:
 
     @classmethod
     def from_config(cls, cfg: VLMRunConfig) -> ScratchVLMTrainer:
-        from hale_vlm.data.multimodal import MultimodalDataModule
+        from hale_vlm.data.vlm import MultimodalDataModule
 
         model = build_vlm(cfg)
         data_module = MultimodalDataModule(cfg, tokenizer=None)

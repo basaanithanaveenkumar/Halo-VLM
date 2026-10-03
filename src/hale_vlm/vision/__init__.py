@@ -1,6 +1,11 @@
-"""Vision encoder and projector modules."""
+"""Vision encoders, projectors, and configuration.
 
-from hale_vlm.vision.encoders import VisionTower, build_vision_tower
-from hale_vlm.vision.projector import VisionProjector, build_projector
+Import subpackages explicitly:
 
-__all__ = ["VisionTower", "build_vision_tower", "VisionProjector", "build_projector"]
+- ``hale_vlm.vision.hale`` — HF SigLIP/CLIP tower + projector
+- ``hale_vlm.vision.scratch`` — OpenCLIP, custom ViT, timm encoders
+"""
+
+from hale_vlm.vision.config import VisionConfig
+
+__all__ = ["VisionConfig"]

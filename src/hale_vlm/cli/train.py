@@ -5,11 +5,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from hale_vlm.core.config.experiment import apply_experiment_layout
+from hale_vlm.config.experiment import apply_experiment_layout
 from hale_vlm.registry import get_trainer
 
 from hale_vlm.config import load_vlm_config
-from hale_vlm.data.multimodal import MultimodalDataModule
+from hale_vlm.data.vlm import MultimodalDataModule
 from hale_vlm.training.evaluator import VLMEvaluator
 from hale_vlm.training.scratch_trainer import ScratchVLMTrainer
 

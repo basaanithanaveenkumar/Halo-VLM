@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from loguru import logger
 
-from hale_vlm.core.config.run import RunConfig
+from hale_vlm.config.run import RunConfig
 
 
 @dataclass(frozen=True)

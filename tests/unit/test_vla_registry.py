@@ -6,22 +6,22 @@ from unittest.mock import patch
 
 import pytest
 
-from hale_vlm.data.robotics_vlm import format_robotics_instruction, vla_sample_to_vlm
+from hale_vlm.data.vla.bridge import format_robotics_instruction, vla_sample_to_vlm
 from hale_vlm.data.types import Modality, RobotEmbodiment, RoboticsVLMMode, VLASample, VLAStage
 from hale_vlm.data.vla.community_paths import SMOLVLA_COMMUNITY_HF_PATHS, hf_path_to_registry_name
-from hale_vlm.data.vla_catalog import (
+from hale_vlm.data.vla.catalog import (
     COMMUNITY_STATS,
     SMOLVLA_ALL_DATASETS,
     SMOLVLA_COMMUNITY_DATASETS,
     SMOLVLA_REAL_WORLD_DATASETS,
     SMOLVLA_SIMULATION_DATASETS,
 )
-from hale_vlm.data.vla_registry import build_vla_dataset, list_vla_datasets
+from hale_vlm.data.vla.registry import build_vla_dataset, list_vla_datasets
 
 
 @pytest.mark.smoke
 def test_vla_registry_lists_smolvla_datasets():
-    import hale_vlm.data.datasets.vla_builtin  # noqa: F401
+    import hale_vlm.data.vla.datasets.builtin  # noqa: F401
 
     names = list_vla_datasets(enabled_only=True)
     assert len(names) == len(SMOLVLA_ALL_DATASETS)
@@ -44,7 +44,7 @@ def test_vla_stage_presets():
 
 
 def test_build_vla_simulation_adapter():
-    import hale_vlm.data.datasets.vla_builtin  # noqa: F401
+    import hale_vlm.data.vla.datasets.builtin  # noqa: F401
 
     adapter = build_vla_dataset("libero")
     assert adapter.spec.stage == VLAStage.SIMULATION
@@ -88,7 +88,7 @@ class _FakeVLAAdapter:
 
 
 def test_sequential_vla_stream():
-    from hale_vlm.data.vla_sequential import SequentialVLAStream, VLAStreamConfig
+    from hale_vlm.data.vla.sequential import SequentialVLAStream, VLAStreamConfig
 
     adapters = {"a": _FakeVLAAdapter(), "b": _FakeVLAAdapter()}
 
@@ -98,7 +98,7 @@ def test_sequential_vla_stream():
     stream = SequentialVLAStream(
         VLAStreamConfig(dataset_names=["a", "b"], max_samples_per_dataset=1, prefetch_workers=1)
     )
-    with patch("hale_vlm.data.vla_sequential.build_vla_dataset", side_effect=_build):
+    with patch("hale_vlm.data.vla.sequential.build_vla_dataset", side_effect=_build):
         samples = list(stream)
     assert len(samples) == 2
     assert samples[0].dataset == "fake-vla"
