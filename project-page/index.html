@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halo-VLM</title>
+<meta name="description" content="Pretrained LoRA VLMs, a from-scratch ViT+MoE VLM and a CLIP-prefix baseline behind one config schema and factory.">
+<meta property="og:title" content="Halo-VLM: One Library, Three Ways to Build a Vision–Language Model">
+<meta property="og:description" content="Pretrained LoRA VLMs, a from-scratch ViT+MoE VLM and a CLIP-prefix baseline behind one config schema and factory.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#5b5b63;--card:#ffffff;--line:#e4e2dc;--accent:#2f5bd3;--accent-soft:#e8eefc;--code:#f3f2ee;--chip:#efeee9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}}
+:root[data-theme="dark"]{--bg:#111214;--fg:#ececee;--muted:#a0a0aa;--card:#1a1b1f;--line:#2c2d33;--accent:#8aa8ff;--accent-soft:#1e2640;--code:#1f2025;--chip:#24252b}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 "Source Serif 4",Georgia,serif}
+.wrap{max-width:920px;margin:0 auto;padding:0 16px}
+header.hero{padding:64px 0 28px;text-align:center}
+.kicker{font:600 13px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,5.4vw,48px)/1.15 Inter,system-ui,sans-serif;margin:14px 0 10px;letter-spacing:-.02em}
+.subtitle{font-size:clamp(17px,2.4vw,21px);color:var(--muted);max-width:720px;margin:0 auto}
+.authors{margin:20px 0 4px;font:500 16px Inter,system-ui,sans-serif}
+.affil{color:var(--muted);font:14px Inter,system-ui,sans-serif}
+.buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:26px 0 8px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:var(--fg);color:var(--bg);text-decoration:none;font:600 14px Inter,system-ui,sans-serif}
+.btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn:hover{opacity:.88}
+section{padding:26px 0;border-top:1px solid var(--line)}
+h2{font:700 24px/1.3 Inter,system-ui,sans-serif;margin:0 0 14px;letter-spacing:-.01em}
+h3{font:650 17px/1.35 Inter,system-ui,sans-serif;margin:0 0 6px}
+p{margin:0 0 12px}
+.tldr{background:var(--accent-soft);border-radius:14px;padding:18px 20px;font-size:18px}
+.tldr b{font-family:Inter,system-ui,sans-serif}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card p{font-size:15.5px;color:var(--muted);margin:0}
+figure{margin:0 0 18px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;overflow-x:auto}
+figcaption{font:14px/1.5 Inter,system-ui,sans-serif;color:var(--muted);margin-top:10px}
+.mermaid{display:flex;justify-content:center;min-width:0}
+.mermaid svg{max-width:100%;height:auto}
+pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;font:13.5px/1.55 "JetBrains Mono",ui-monospace,monospace;margin:0 0 12px}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.9em}
+table{width:100%;border-collapse:collapse;font:15px/1.5 Inter,system-ui,sans-serif}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+td code{background:var(--chip);padding:1px 6px;border-radius:6px}
+.tablewrap{overflow-x:auto}
+.note{font:14px/1.55 Inter,system-ui,sans-serif;color:var(--muted)}
+footer{padding:32px 0 48px;color:var(--muted);font:14px Inter,system-ui,sans-serif;text-align:center;border-top:1px solid var(--line)}
+a{color:var(--accent)}
+.theme{position:fixed;top:12px;right:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:6px 12px;font:13px Inter,system-ui,sans-serif;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="theme" id="theme" aria-label="Toggle dark mode">Theme</button>
+<div class="wrap">
+<header class="hero">
+  <div class="kicker">VLM library · LoRA · From-scratch MoE</div>
+  <h1>Halo-VLM: One Library, Three Ways to Build a Vision–Language Model</h1>
+  <p class="subtitle">Pretrained 8B backbones with LoRA, a 431M-parameter mixture-of-experts VLM trained from scratch, and a one-token CLIP baseline share one config schema, one factory, one set of registries and one data layer.</p>
+  <div class="authors">B A NaveenKumar</div>
+  <div class="affil">Independent research · 2026</div>
+  <div class="buttons"><a class="btn" href="paper.pdf">Paper (PDF)</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Halo-VLM">Code</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Halo-VLM/tree/main/docs">Docs</a><a class="btn alt" href="https://github.com/basaanithanaveenkumar/Halo-VLM/blob/main/docs/blog/2026-09-28-three-ways-to-build-a-vlm.md">Blog</a></div>
+</header>
+<section><div class="tldr"><b>TL;DR.</b> Change one <code>variant</code> line to switch between HaleVLM (SigLIP + Qwen3-8B/R1-7B with LoRA, ≈1% trainable), HaloVLM (ViT + 16-layer decoder, both with DeepSeek-style MoE, 431.5M parameters) and BasicVLM (OpenCLIP token + TransformerDecoder), all on the same data and tooling.</div></section>
+<section><h2>Abstract</h2><p>Vision–language models are built in very different regimes: adapting a frozen billion-parameter LLM with a few million trainable parameters, training a small model end to end to understand every component, or starting from a single pooled CLIP feature as a baseline. These regimes usually live in separate codebases, which makes like-for-like comparisons hard.</p><p>Halo-VLM is a self-contained library that hosts all three behind one configuration schema, one model factory and one set of registries. HaleVLM trains about 1% of an 8B model. HaloVLM is a from-scratch model whose vision encoder and decoder both use DeepSeek-style mixture-of-experts layers (about 108M of 289M decoder parameters active per token). BasicVLM prefixes one OpenCLIP feature to a transformer decoder. All three share typed YAML configs, SmolVLM/SmolVLA data registries, a COCO captioning pipeline, and greedy, beam and streaming decoding.</p></section>
+<section><h2>Highlights</h2><div class="grid"><div class="card"><h3>One factory</h3><p><code>build_vlm(cfg)</code> resolves <code>variant</code> or <code>model.architecture</code> to <code>hale</code>, <code>halo_moe</code> or <code>basic</code>.</p></div><div class="card"><h3>HaleVLM</h3><p>Frozen SigLIP-B/16 → MLP → Qwen3-8B or DeepSeek-R1-Distill-Qwen-7B with LoRA r = 16. Trainable: ≈83.5M or ≈71.6M.</p></div><div class="card"><h3>HaloVLM from scratch</h3><p>ViT (6 layers) + causal decoder (16 layers, 32 heads). Every FFN has 2 shared + 16 routed experts, top-4. 431.5M parameters.</p></div><div class="card"><h3>BasicVLM baseline</h3><p>OpenCLIP ViT-B/32 global token + 12-layer TransformerDecoder (37.9M): the cheapest possible fusion.</p></div><div class="card"><h3>Shared data layer</h3><p>19 SmolVLM datasets by stage, 540 SmolVLA robotics datasets, a robotics → VLM converter, COCO via LAVIS, and overfit sets.</p></div><div class="card"><h3>Self-contained</h3><p>Vendored config, registry and runtime utilities, with no external framework install. CI runs ruff and pytest (29 passed, 2 skipped).</p></div></div></section>
+<section><h2>Architecture</h2><figure><div class="mermaid">flowchart TB
+  Y[&quot;YAML config&lt;br/&gt;variant / model.architecture&quot;] --&gt; F{&quot;build_vlm(cfg)&lt;br/&gt;resolved_architecture()&quot;}
+  F --&gt;|hale| H[&quot;HaleVLM&lt;br/&gt;SigLIP (frozen) → MLP → Qwen3-8B / R1-7B + LoRA&quot;]
+  F --&gt;|halo_moe| M[&quot;HaloVLM (scratch)&lt;br/&gt;ViT-MoE → MLP → prefix → 16-layer MoE decoder&quot;]
+  F --&gt;|basic| B[&quot;BasicVLM (scratch)&lt;br/&gt;OpenCLIP ViT-B/32 → 1 token → TransformerDecoder ×12&quot;]
+  H --&gt; T1[&quot;generic trainer&lt;br/&gt;optimizer(trainable_parameters)&quot;]
+  M --&gt; T2[&quot;ScratchVLMTrainer&lt;br/&gt;TensorBoard, gradient stats, videos&quot;]
+  B --&gt; T2</div><figcaption><b>Figure 1.</b> Three model paths behind one factory.</figcaption></figure><figure><div class="mermaid">flowchart LR
+  subgraph HaleVLM[&quot;HaleVLM: splice at &amp;lt;image&amp;gt;&quot;]
+    direction LR
+    h1[&quot;text&quot;] --&gt; h2[&quot;196 SigLIP tokens&quot;] --&gt; h3[&quot;text&quot;]
+  end
+  subgraph HaloVLM[&quot;HaloVLM: patch prefix&quot;]
+    direction LR
+    m1[&quot;196 ViT patches&quot;] --&gt; m2[&quot;Describe the image … [SEP]&quot;]
+  end
+  subgraph BasicVLM[&quot;BasicVLM: global prefix&quot;]
+    direction LR
+    b1[&quot;1 CLIP token&quot;] --&gt; b2[&quot;Describe the image … [SEP]&quot;]
+  end</div><figcaption><b>Figure 2.</b> Fusion strategies: splice at <code>&lt;image&gt;</code>, patch prefix, and global-token prefix.</figcaption></figure><figure><div class="mermaid">flowchart TB
+  X[&quot;x [B, T, 512]&quot;] --&gt; N1[&quot;LayerNorm&quot;] --&gt; A[&quot;multi-head attention&lt;br/&gt;(causal in the decoder: 32 heads; ViT: 16 heads)&quot;]
+  A --&gt; R1[&quot;+ residual&quot;]
+  X --&gt; R1
+  R1 --&gt; N2[&quot;LayerNorm&quot;]
+  N2 --&gt; RT[&quot;noisy top-4 router over 16 experts&quot;]
+  N2 --&gt; S[&quot;2 shared SwiGLU experts&lt;br/&gt;512 → 614 → 512&quot;]
+  RT --&gt; E[&quot;4 routed SwiGLU experts&lt;br/&gt;gate-weighted&quot;]
+  N2 --&gt; E
+  S --&gt; SUM[&quot;Σ&quot;]
+  E --&gt; SUM
+  SUM --&gt; R2[&quot;+ residual&quot;]
+  R1 --&gt; R2</div><figcaption><b>Figure 3.</b> HaloVLM transformer block with DeepSeek-style MoE (encoder and decoder).</figcaption></figure><figure><div class="mermaid">flowchart LR
+  I[&quot;image 224×224&quot;] --&gt; V[&quot;ViT-MoE → 196 tokens&quot;] --&gt; P[&quot;projector&quot;]
+  C[&quot;caption&quot;] --&gt; TK[&quot;BERT tokenize:&lt;br/&gt;Describe the image + caption + [SEP]&quot;]
+  P --&gt; SEQ[&quot;[196 patches ; tokens] + positions&quot;]
+  TK --&gt; SEQ
+  SEQ --&gt; D[&quot;16-layer causal MoE decoder&quot;] --&gt; LM[&quot;LM head (30,522)&quot;]
+  TK --&gt; TG[&quot;targets: [-100 × 196 ; ids shifted by 1]&quot;]
+  LM --&gt; CE[&quot;cross-entropy&quot;]
+  TG --&gt; CE</div><figcaption><b>Figure 4.</b> Scratch training sequence and pre-shifted targets.</figcaption></figure></section>
+<section><h2>Model comparison</h2><div class="tablewrap"><table><thead><tr><th></th><th>HaleVLM</th><th>HaloVLM</th><th>BasicVLM</th></tr></thead><tbody><tr><td>Vision</td><td>SigLIP-B/16 (frozen)</td><td>ViT + MoE (scratch)</td><td>OpenCLIP ViT-B/32</td></tr><tr><td>Visual tokens</td><td>196</td><td>196</td><td>1</td></tr><tr><td>Fusion</td><td>splice at &lt;image&gt;</td><td>prefix</td><td>prefix</td></tr><tr><td>Language model</td><td>Qwen3-8B / R1-7B + LoRA</td><td>16-layer MoE decoder</td><td>12-layer TransformerDecoder</td></tr><tr><td>Trained params</td><td>≈72–84M</td><td>431.5M</td><td>all</td></tr></tbody></table></div></section>
+<section><h2>Status and known issues</h2><p class='note'>No benchmark results yet. The HaleVLM path currently overwrites the text after <code>&lt;image&gt;</code> and trains on the whole prompt. See <a href='https://github.com/basaanithanaveenkumar/Halo-VLM/blob/main/docs/known-issues.md'>known-issues.md</a> for fixes. The scratch path is unaffected.</p></section>
+<section><h2>Quick start</h2><pre><code>git clone https://github.com/basaanithanaveenkumar/Halo-VLM &amp;&amp; cd Halo-VLM
+uv sync --extra dev --extra test --extra scratch
+uv run pytest tests/ -q
+uv run hale-vlm-train configs/halo_moe_overfit.yaml</code></pre><pre><code>from hale_vlm import load_config, build_vlm
+
+model = build_vlm(load_config(&quot;configs/halo_moe_coco.yaml&quot;))   # HaloVLM
+model = build_vlm(load_config(&quot;configs/qwen3_8b_overfit.yaml&quot;)) # HaleVLM</code></pre></section>
+<section><h2>Citation</h2><pre><code>@misc{naveenkumar2026halovlm,
+  title  = {Halo-VLM: One Library, Three Ways to Build a Vision--Language Model},
+  author = {NaveenKumar, B A},
+  year   = {2026},
+  url    = {https://github.com/basaanithanaveenkumar/Halo-VLM}
+}</code></pre></section>
+</div>
+<footer>Halo-VLM · <a href="https://github.com/basaanithanaveenkumar/Halo-VLM">Source on GitHub</a> · MIT License</footer>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+const root = document.documentElement;
+const saved = (() => { try { return localStorage.getItem('theme'); } catch (e) { return null; } })();
+if (saved) root.dataset.theme = saved;
+const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark'
+  : matchMedia('(prefers-color-scheme: dark)').matches;
+const sources = [...document.querySelectorAll('.mermaid')].map(el => el.textContent);
+async function render() {
+  mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
+    flowchart: { curve: 'basis', htmlLabels: true } });
+  const els = document.querySelectorAll('.mermaid');
+  els.forEach((el, i) => { el.removeAttribute('data-processed'); el.textContent = sources[i]; });
+  await mermaid.run({ nodes: els });
+}
+document.getElementById('theme').addEventListener('click', () => {
+  root.dataset.theme = isDark() ? 'light' : 'dark';
+  try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+  render();
+});
+render();
+</script>
+</body>
+</html>

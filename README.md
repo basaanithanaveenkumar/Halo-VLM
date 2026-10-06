@@ -4,6 +4,17 @@ Production-quality vision-language modeling library: Hale (HF SigLIP + Qwen/Deep
 
 ![Halo VLM](assets/halo_RB.png)
 
+## Resources
+
+| | |
+|---|---|
+| Paper (arXiv source) | [`paper/main.tex`](paper/main.tex) — build with `make -C paper` |
+| Project page | [basaanithanaveenkumar.github.io/Halo-VLM](https://basaanithanaveenkumar.github.io/Halo-VLM/) ([source](project-page/index.html)) |
+| Documentation | [`docs/`](docs/index.md) — getting started, configuration, [known issues](docs/known-issues.md) (MkDocs: `docs/mkdocs.yml`) |
+| Architecture diagrams | [overview](docs/architecture-overview.md) and [full reference](docs/architecture.md) (Mermaid) |
+| Blog | [Three ways to build a vision-language model, in one library](docs/blog/2026-09-28-three-ways-to-build-a-vlm.md) |
+| Claude Code skills | [`.claude/skills/`](.claude/skills) — `halo-vlm-dev`, `halo-vlm-scratch`, `halo-vlm-extend`, `hale-publish` |
+
 ## Install
 
 ```bash
