@@ -1,0 +1,26 @@
+# ============================================================
+# Halo-VLM  —  Overfit / smoke-test
+# ============================================================
+
+inherits: base.yaml
+variant: qwen3_8b_vlm
+
+data:
+  source: overfit
+  overfit_text: "A red square on a white background."
+  n_overfit_copies: 32
+
+train:
+  steps: 500
+  batch_size: 2
+  lr: 2.0e-5
+  warmup_steps: 5
+
+logging:
+  backend: noop
+
+experiment:
+  enabled: false
+
+eval:
+  every_n_epochs: 99999

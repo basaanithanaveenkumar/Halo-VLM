@@ -1,0 +1,40 @@
+# ============================================================
+# Halo-VLM  —  Phase 1: VLA Pre-training (extended corpus)
+# ============================================================
+# Full 12-dataset VLA pretrain including the Oct-2026 dataset
+# additions: DROID 1.0.1, LIBERO, OpenEAI, LeRobot Community v3,
+# RoboGene, Being-H0, AgiBot World, H-Tac TTP.
+#
+# De-facto standard OXE + DROID + BridgeV2 baseline is a subset.
+# ============================================================
+
+inherits: base.yaml
+
+data:
+  source: vla_registry
+  vla_registry_phase: pretrain
+  vla_registry_stage: all
+  # Full 12-dataset pretrain list
+  vla_dataset_names:
+    - open-x-embodiment       # ~2M demos, 22 embodiments
+    - bridge-v2               # 60K, WidowX
+    - fractal-rt1             # 130K, RT-1
+    - bc-z                    # 25K, 100 tasks
+    - droid-v1                # 76K, in-the-wild Franka
+    - libero-pretrain         # 5K+, Franka sim
+    - openEAI-dataset         # ~3M, OXE+UMI+DROID+BC-Z unified
+    - lerobot-community-v3    # 5M+, 791 datasets/46 robots
+    - robogene                # 500K, agentic generation
+    - being-h0                # 100K, human video
+    - agibot-world            # 200K, bimanual real-world
+    - h-tac-ttp               # 50K, tactile pretraining
+  streaming: true
+  prefetch_workers: 8
+  max_samples_per_dataset: null
+
+train:
+  epochs: 1
+  batch_size: 128
+  lr: 1.0e-4
+  warmup_steps: 5000
+  grad_clip: 1.0

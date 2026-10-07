@@ -1,0 +1,21 @@
+# ============================================================
+# Halo-VLM  —  Deployment: Local / CPU / MPS inference
+# ============================================================
+
+inherits: base.yaml
+
+model:
+  freeze_llm: true
+  freeze_encoder: true
+
+train:
+  steps: 0
+
+deploy:
+  enabled: true
+  backend: pytorch
+  device: cpu                   # cpu | mps (Apple Silicon)
+  dtype: float32
+  compile: false
+  max_batch_size: 1
+  export_path: data/exports

@@ -1,0 +1,22 @@
+# ============================================================
+# Halo-VLM  —  Deployment: GPU / CUDA inference
+# ============================================================
+
+inherits: base.yaml
+
+model:
+  freeze_llm: true
+  freeze_encoder: true
+
+train:
+  steps: 0
+
+deploy:
+  enabled: true
+  backend: pytorch
+  device: cuda
+  dtype: bfloat16
+  compile: true
+  compile_mode: reduce-overhead
+  max_batch_size: 8
+  export_path: data/exports
