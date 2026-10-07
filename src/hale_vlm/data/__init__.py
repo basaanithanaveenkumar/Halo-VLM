@@ -9,7 +9,9 @@ from hale_vlm.data.types import (
     DatasetSpec,
     Modality,
     RoboticsVLMMode,
+    TrainingPhase,
     TrainingStage,
+    VLATrainingPhase,
     VideoCategory,
     VisionCategory,
     VLMSample,
@@ -19,11 +21,13 @@ __all__ = [
     "DatasetSpec",
     "Modality",
     "RoboticsVLMMode",
+    "TrainingPhase",
     "TrainingStage",
     "VIDEO_CATEGORY_NOTES",
     "VISION_CATEGORY_NOTES",
     "VideoCategory",
     "VisionCategory",
+    "VLATrainingPhase",
     "VLMSample",
 ]
 
@@ -63,6 +67,23 @@ _LAZY_EXPORTS = {
     "get_vla_dataset": ("hale_vlm.data.vla.registry", "get_vla_dataset"),
     "list_vla_datasets": ("hale_vlm.data.vla.registry", "list_vla_datasets"),
     "register_vla_dataset": ("hale_vlm.data.vla.registry", "register_vla_dataset"),
+    # Phase-aware registries (pretrain / mid-train / post-train)
+    "PHASE_DATASETS": ("hale_vlm.data.vlm.phase_registry", "PHASE_DATASETS"),
+    "VLM_PHASE_PRESETS": ("hale_vlm.data.vlm.catalog", "VLM_PHASE_PRESETS"),
+    "PRETRAIN_VLM_DATASETS": ("hale_vlm.data.vlm.catalog", "PRETRAIN_VLM_DATASETS"),
+    "MID_TRAIN_VLM_DATASETS": ("hale_vlm.data.vlm.catalog", "MID_TRAIN_VLM_DATASETS"),
+    "POST_TRAIN_VLM_DATASETS": ("hale_vlm.data.vlm.catalog", "POST_TRAIN_VLM_DATASETS"),
+    "build_phase_dataset": ("hale_vlm.data.vlm.phase_registry", "build_phase_dataset"),
+    "list_phase_datasets": ("hale_vlm.data.vlm.phase_registry", "list_phase_datasets"),
+    "register_phase_dataset": ("hale_vlm.data.vlm.phase_registry", "register_phase_dataset"),
+    "VLA_PHASE_DATASETS": ("hale_vlm.data.vla.phase_registry", "VLA_PHASE_DATASETS"),
+    "VLA_PHASE_PRESETS_BY_PHASE": ("hale_vlm.data.vla.catalog", "VLA_PHASE_PRESETS_BY_PHASE"),
+    "PRETRAIN_VLA_DATASETS": ("hale_vlm.data.vla.catalog", "PRETRAIN_VLA_DATASETS"),
+    "MID_TRAIN_VLA_DATASETS": ("hale_vlm.data.vla.catalog", "MID_TRAIN_VLA_DATASETS"),
+    "POST_TRAIN_VLA_DATASETS": ("hale_vlm.data.vla.catalog", "POST_TRAIN_VLA_DATASETS"),
+    "build_vla_phase_dataset": ("hale_vlm.data.vla.phase_registry", "build_vla_phase_dataset"),
+    "list_vla_phase_datasets": ("hale_vlm.data.vla.phase_registry", "list_vla_phase_datasets"),
+    "register_vla_phase_dataset": ("hale_vlm.data.vla.phase_registry", "register_vla_phase_dataset"),
 }
 
 

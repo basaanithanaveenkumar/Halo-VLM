@@ -1,0 +1,22 @@
+# Phase 1 — VLM Pre-training
+# Large-scale weakly-supervised image-text alignment.
+# Trains the visual encoder + MLP projector from scratch (or continues a pretrained LLM).
+#
+# Datasets: laion-aesthetics-v2-5plus, cc3m, cc12m, datacomp-1b, wit, redcaps
+# (~600M+ image-text pairs combined; streamed lazily from HuggingFace Hub)
+
+inherits: base.yaml
+
+data:
+  source: phase_registry
+  registry_phase: pretrain
+  streaming: true
+  prefetch_workers: 4
+  max_samples_per_dataset: null   # no cap — stream full datasets
+
+train:
+  epochs: 1                       # single epoch over the massive corpus
+  batch_size: 256
+  lr: 1.0e-3
+  warmup_steps: 2000
+  grad_clip: 1.0

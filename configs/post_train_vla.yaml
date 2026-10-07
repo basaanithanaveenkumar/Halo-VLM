@@ -1,0 +1,22 @@
+# Phase 3 — VLA Post-Training (task-specific fine-tuning)
+# Maximises success rate on deployment benchmark tasks.
+#
+# Datasets: libero-goal, libero-spatial, libero-object, libero-100, aloha-bimanual
+# (few hundred to few thousand demonstrations per task suite)
+
+inherits: base.yaml
+
+data:
+  source: vla_registry
+  vla_registry_phase: post_train
+  vla_registry_stage: all
+  streaming: false              # small datasets — materialise in memory
+  prefetch_workers: 2
+  max_samples_per_dataset: null
+
+train:
+  epochs: 50
+  batch_size: 32
+  lr: 1.0e-5
+  warmup_steps: 100
+  grad_clip: 1.0

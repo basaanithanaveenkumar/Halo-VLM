@@ -7,10 +7,12 @@ from hale_vlm.data.types.vla import (
     VLADatasetSpec,
     VLASample,
     VLAStage,
+    VLATrainingPhase,
 )
 from hale_vlm.data.types.vlm import (
     BatchModality,
     DatasetSpec,
+    TrainingPhase,
     TrainingStage,
     VideoCategory,
     VisionCategory,
@@ -23,11 +25,13 @@ __all__ = [
     "Modality",
     "RobotEmbodiment",
     "RoboticsVLMMode",
+    "TrainingPhase",
     "TrainingStage",
     "VLADatasetSpec",
     "VLASample",
     "VLMSample",
     "VLAStage",
+    "VLATrainingPhase",
     "VideoCategory",
     "VisionCategory",
 ]

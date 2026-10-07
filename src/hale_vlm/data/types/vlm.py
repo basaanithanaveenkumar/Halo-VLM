@@ -21,6 +21,20 @@ class TrainingStage(StrEnum):
     REJECTED = "rejected"
 
 
+class TrainingPhase(StrEnum):
+    """High-level training phase: pretrain → mid-train → post-train.
+
+    Maps to the three-phase recipe used across Hale models:
+      PRETRAIN   — large-scale weakly-supervised alignment
+      MID_TRAIN  — curated connector / domain-adaptation data
+      POST_TRAIN — instruction-following SFT and task fine-tuning
+    """
+
+    PRETRAIN = "pretrain"
+    MID_TRAIN = "mid_train"
+    POST_TRAIN = "post_train"
+
+
 class VisionCategory(StrEnum):
     """Vision-stage mixture buckets (Figure 8, SmolVLM paper)."""
 
@@ -65,6 +79,9 @@ class DatasetSpec:
     conversation_field: str | None = "conversations"
     streaming: bool = True
     trust_remote_code: bool = False
+    # High-level training phase (pretrain / mid_train / post_train).
+    # None means the dataset belongs only to the SmolVLM stage taxonomy.
+    phase: TrainingPhase | None = None
 
 
 @dataclass

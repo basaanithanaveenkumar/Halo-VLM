@@ -34,12 +34,18 @@ class VLMDataConfig(DataConfig):
         "registry",
         "vla_registry",
         "mixed_registry",
+        "phase_registry",
         "coco_lavis",
     ] = "huggingface"
     registry_stage: Literal["all", "vision", "video", "context"] = "all"
     registry_datasets: list[str] = Field(default_factory=list)
+    # Training-phase selection — used when source="phase_registry".
+    # "all" loads every phase dataset; otherwise loads only the named phase.
+    registry_phase: Literal["all", "pretrain", "mid_train", "post_train"] = "all"
     vla_registry_stage: Literal["all", "community", "simulation", "real_world"] = "all"
     vla_registry_datasets: list[str] = Field(default_factory=list)
+    # VLA training-phase selection — used alongside vla_registry_stage.
+    vla_registry_phase: Literal["all", "pretrain", "mid_train", "post_train"] = "all"
     robotics_vlm_mode: RoboticsVLMMode = RoboticsVLMMode.OFF
     max_samples_per_dataset: int | None = 256
     streaming: bool = True
@@ -74,6 +80,16 @@ class VLMDataConfig(DataConfig):
             return list(presets[self.registry_stage])
         return self.registry_datasets
 
+    def resolved_phase_datasets(self) -> list[str]:
+        """Return phase dataset names for source='phase_registry'."""
+        from hale_vlm.data.vlm.catalog import VLM_PHASE_PRESETS
+        from hale_vlm.data.types import TrainingPhase
+
+        if self.registry_phase == "all":
+            return [name for names in VLM_PHASE_PRESETS.values() for name in names]
+        phase = TrainingPhase(self.registry_phase)
+        return list(VLM_PHASE_PRESETS.get(phase, ()))
+
     def resolved_vla_registry_datasets(self) -> list[str]:
         from hale_vlm.data.vla.catalog import (
             SMOLVLA_ALL_DATASETS,
@@ -92,8 +108,18 @@ class VLMDataConfig(DataConfig):
             return list(presets[self.vla_registry_stage])
         return self.vla_registry_datasets
 
+    def resolved_vla_phase_datasets(self) -> list[str]:
+        """Return VLA phase dataset names filtered by vla_registry_phase."""
+        from hale_vlm.data.vla.catalog import VLA_PHASE_PRESETS_BY_PHASE
+        from hale_vlm.data.types import VLATrainingPhase
+
+        if self.vla_registry_phase == "all":
+            return [name for names in VLA_PHASE_PRESETS_BY_PHASE.values() for name in names]
+        phase = VLATrainingPhase(self.vla_registry_phase)
+        return list(VLA_PHASE_PRESETS_BY_PHASE.get(phase, ()))
+
     def robotics_in_vlm_enabled(self) -> bool:
         return self.robotics_vlm_mode != RoboticsVLMMode.OFF
 
     def uses_registry_stream(self) -> bool:
-        return self.source in {"registry", "mixed_registry"} or self.robotics_in_vlm_enabled()
+        return self.source in {"registry", "mixed_registry", "phase_registry"} or self.robotics_in_vlm_enabled()

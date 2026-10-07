@@ -1,0 +1,23 @@
+# Phase 2 — VLM Mid-Training (connector pre-training / domain adaptation)
+# Curated, higher-quality image-text data that bridges pretrain features to
+# instruction-following capability.
+#
+# Datasets: llava-pretrain-558k, sharegpt4v-pt, blip-laion-cc-sbu-558k,
+#           recap-datacomp-1b, allava-vflan
+# (~3–5M samples total; moderate-quality filtering applied)
+
+inherits: base.yaml
+
+data:
+  source: phase_registry
+  registry_phase: mid_train
+  streaming: true
+  prefetch_workers: 4
+  max_samples_per_dataset: 500000  # cap each dataset for balanced mixing
+
+train:
+  epochs: 2
+  batch_size: 128
+  lr: 2.0e-4
+  warmup_steps: 1000
+  grad_clip: 1.0

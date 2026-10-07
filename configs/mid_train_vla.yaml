@@ -1,0 +1,22 @@
+# Phase 2 — VLA Mid-Training (domain-specific embodiment adaptation)
+# Adapts pretrained representations to target workspace and object distributions.
+#
+# Datasets: droid-100, rh20t, taco-play, pusht, aloha-sim
+# (~190K+ demonstrations on Franka / mixed platforms)
+
+inherits: base.yaml
+
+data:
+  source: vla_registry
+  vla_registry_phase: mid_train
+  vla_registry_stage: all
+  streaming: true
+  prefetch_workers: 4
+  max_samples_per_dataset: 50000
+
+train:
+  epochs: 5
+  batch_size: 64
+  lr: 5.0e-5
+  warmup_steps: 1000
+  grad_clip: 1.0

@@ -1,0 +1,22 @@
+# Phase 1 — VLA Pre-training
+# Large-scale open-world robot teleoperation across many embodiments.
+#
+# Datasets: open-x-embodiment, bridge-v2, fractal-rt1, bc-z
+# (~2M+ demonstrations; diverse embodiments and task families)
+
+inherits: base.yaml
+
+data:
+  source: vla_registry
+  vla_registry_phase: pretrain
+  vla_registry_stage: all
+  streaming: true
+  prefetch_workers: 4
+  max_samples_per_dataset: null   # stream full corpora
+
+train:
+  epochs: 1
+  batch_size: 128
+  lr: 1.0e-4
+  warmup_steps: 5000
+  grad_clip: 1.0

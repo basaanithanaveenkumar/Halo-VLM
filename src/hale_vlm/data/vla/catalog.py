@@ -1,8 +1,8 @@
-"""SmolVLA paper dataset catalog and stage presets."""
+"""SmolVLA paper dataset catalog, stage presets, and training-phase presets."""
 
 from __future__ import annotations
 
-from hale_vlm.data.types import RobotEmbodiment, VLAStage
+from hale_vlm.data.types import RobotEmbodiment, VLAStage, VLATrainingPhase
 from hale_vlm.data.vla.community_paths import SMOLVLA_COMMUNITY_HF_PATHS, hf_path_to_registry_name
 
 # Simulation benchmarks (§4.1)
@@ -59,4 +59,56 @@ EMBODIMENT_BY_STAGE: dict[VLAStage, RobotEmbodiment] = {
     VLAStage.COMMUNITY: RobotEmbodiment.SO100,
     VLAStage.SIMULATION: RobotEmbodiment.MIXED,
     VLAStage.REAL_WORLD: RobotEmbodiment.SO100,
+}
+
+# ---------------------------------------------------------------------------
+# VLA training-phase dataset groups (separate from SmolVLA stage taxonomy)
+# These live in a separate VLA_PHASE_DATASETS registry.
+# ---------------------------------------------------------------------------
+
+# Phase 1 — PRETRAIN: large-scale open-world robot teleoperation data
+PRETRAIN_VLA_DATASETS: tuple[str, ...] = (
+    "open-x-embodiment",   # Open X-Embodiment: 22 robot types, ~2M demos
+    "bridge-v2",           # Bridge Data V2: diverse household manipulation
+    "fractal-rt1",         # Google RT-1 training data (fractal20220817)
+    "bc-z",               # BC-Z: 25K episodes, 100 tasks on Google robot
+)
+
+# Phase 2 — MID_TRAIN: domain-specific manipulation / embodiment adaptation
+MID_TRAIN_VLA_DATASETS: tuple[str, ...] = (
+    "droid-100",           # DROID 100K-frame Franka subset (lerobot)
+    "rh20t",               # RH20T: 110K contact-rich manipulation demos
+    "taco-play",           # TACO-Play: 3.5K multi-view episodes, Franka
+    "pusht",               # Push-T: 2D pushing task for behaviour cloning
+    "aloha-sim",           # ALOHA simulated cube transfer + peg insertion
+)
+
+# Phase 3 — POST_TRAIN: task-specific fine-tuning on target embodiment
+POST_TRAIN_VLA_DATASETS: tuple[str, ...] = (
+    "libero-goal",         # LIBERO-Goal: goal-conditioned 10 tasks
+    "libero-spatial",      # LIBERO-Spatial: spatial-constraint tasks
+    "libero-object",       # LIBERO-Object: object-manipulation tasks
+    "libero-100",          # LIBERO-100: full 100-task benchmark
+    "aloha-bimanual",      # ALOHA real bimanual manipulation tasks
+)
+
+VLA_PHASE_PRESETS_BY_PHASE: dict[VLATrainingPhase, tuple[str, ...]] = {
+    VLATrainingPhase.PRETRAIN: PRETRAIN_VLA_DATASETS,
+    VLATrainingPhase.MID_TRAIN: MID_TRAIN_VLA_DATASETS,
+    VLATrainingPhase.POST_TRAIN: POST_TRAIN_VLA_DATASETS,
+}
+
+VLA_PHASE_NOTES: dict[VLATrainingPhase, str] = {
+    VLATrainingPhase.PRETRAIN: (
+        "Large-scale open-world robot teleoperation across many embodiments. "
+        "Trains generalised visual-motor representations."
+    ),
+    VLATrainingPhase.MID_TRAIN: (
+        "Domain-specific manipulation data for the target embodiment family. "
+        "Adapts pretrained features to desired workspace and object distributions."
+    ),
+    VLATrainingPhase.POST_TRAIN: (
+        "Task-specific fine-tuning on a small set of target tasks. "
+        "Maximises success rate on the deployment benchmark."
+    ),
 }

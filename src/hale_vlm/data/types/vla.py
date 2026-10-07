@@ -17,6 +17,19 @@ class VLAStage(StrEnum):
     REAL_WORLD = "real_world"
 
 
+class VLATrainingPhase(StrEnum):
+    """High-level training phase for VLA robot policies.
+
+      PRETRAIN   — large-scale open robot teleoperation (Open-X, Bridge V2, RT-1)
+      MID_TRAIN  — domain-specific manipulation data (DROID, AIRoA-MoMA)
+      POST_TRAIN — task-specific fine-tuning on target embodiment
+    """
+
+    PRETRAIN = "pretrain"
+    MID_TRAIN = "mid_train"
+    POST_TRAIN = "post_train"
+
+
 class RobotEmbodiment(StrEnum):
     """Robot platforms referenced in SmolVLA."""
 
@@ -48,6 +61,9 @@ class VLADatasetSpec:
     streaming: bool = True
     trust_remote_code: bool = False
     episodes: int | None = None
+    # High-level training phase (pretrain / mid_train / post_train).
+    # None means the dataset belongs only to the SmolVLA stage taxonomy.
+    phase: VLATrainingPhase | None = None
 
 
 @dataclass
