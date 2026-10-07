@@ -68,10 +68,21 @@ EMBODIMENT_BY_STAGE: dict[VLAStage, RobotEmbodiment] = {
 
 # Phase 1 — PRETRAIN: large-scale open-world robot teleoperation data
 PRETRAIN_VLA_DATASETS: tuple[str, ...] = (
-    "open-x-embodiment",   # Open X-Embodiment: 22 robot types, ~2M demos
-    "bridge-v2",           # Bridge Data V2: diverse household manipulation
-    "fractal-rt1",         # Google RT-1 training data (fractal20220817)
-    "bc-z",               # BC-Z: 25K episodes, 100 tasks on Google robot
+    # Core / flagship cross-embodiment corpora
+    "open-x-embodiment",      # Open X-Embodiment: 22 robot types, ~2M demos
+    "bridge-v2",              # Bridge Data V2: diverse household manipulation
+    "fractal-rt1",            # Google RT-1 training data (fractal20220817)
+    "bc-z",                   # BC-Z: 25K episodes, 100 tasks on Google robot
+    "droid-v1",               # DROID 1.0.1: 76K Franka demos, in-the-wild
+    "libero-pretrain",        # LIBERO (HuggingFaceVLA): 130+ tasks, 5K+ eps
+    # Aggregated / preprocessed packs
+    "openEAI-dataset",        # OpenEAI: OXE + UMI + DROID + BC-Z in HDF5
+    "lerobot-community-v3",   # LeRobot Community v3: 791 datasets, 46 robots
+    "robogene",               # RoboGene: diversity-driven agentic generation
+    # Human-video and tactile pretraining
+    "being-h0",               # Being-H0: large-scale human video pretraining
+    "agibot-world",           # AgiBot World: bimanual real-world manipulation
+    "h-tac-ttp",              # H-Tac TTP: tactile pretraining for dexterous manip
 )
 
 # Phase 2 — MID_TRAIN: domain-specific manipulation / embodiment adaptation
