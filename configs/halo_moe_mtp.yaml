@@ -1,0 +1,32 @@
+# Scratch Halo MoE VLM trained with multi-token prediction.
+# Switch back to plain next-token training with `objective: autoregressive` (the default).
+# Doc: docs/multi_token_prediction.md
+variant: halo_moe_mtp
+model:
+  architecture: halo_moe
+  max_length: 24
+  vision:
+    image_size: 224
+  scratch:
+    embed_dim: 512
+    vocab_size: 30522
+    tokenizer_id: bert-base-uncased
+    objective: mtp              # autoregressive | mtp
+    mtp_style: sequential       # parallel (Gloeckle et al.) | sequential (DeepSeek-V3)
+    mtp_num_future_tokens: 4    # next token + 3 more
+    mtp_loss_weight: 0.3
+train:
+  backend: scratch
+  batch_size: 2
+  lr: 3.0e-4
+  max_epochs: 1
+  log_tensorboard: false
+data:
+  source: overfit
+  overfit_text: "A robot arm picking up a red block."
+  n_overfit_copies: 8
+logging:
+  backend: noop
+experiment:
+  enabled: false
+device: cpu

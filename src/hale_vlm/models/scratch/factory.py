@@ -14,6 +14,9 @@ def build_scratch_vlm(cfg: VLMRunConfig):
     if architecture == "basic":
         from hale_vlm.models.scratch.basic_vlm import BasicVLM
 
+        if cfg.model.scratch.objective != "autoregressive":
+            raise ValueError("model.scratch.objective: mtp is implemented for the halo_moe architecture")
+
         return BasicVLM.from_config(cfg)
     if architecture == "halo_moe":
         from hale_vlm.models.scratch.halo_vlm import HaloVLM

@@ -34,8 +34,11 @@ def _token_embedding(model: nn.Module) -> nn.Embedding:
 class ScratchVLMTrainer:
     def __init__(self, model, train_loader, val_loader=None, 
                  device='cuda', learning_rate=1e-4, max_epochs=10,
-                 log_tensorboard=False, log_dir="./runs"):
+                 log_tensorboard=False, log_dir="./runs", mtp_loss_weight=0.3):
         self.model = model.to(device)
+        # Multi-token prediction: weight of the extra-depth loss when the model's objective is
+        # "mtp" (ignored for the autoregressive objective).
+        self.mtp_loss_weight = mtp_loss_weight
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
@@ -67,6 +70,10 @@ class ScratchVLMTrainer:
         self.global_step = 0
         self.tokenizer = None  # Will be set externally if needed
         
+    @property
+    def uses_mtp(self) -> bool:
+        return getattr(self.model, "objective", "autoregressive") == "mtp"
+
     def set_tokenizer(self, tokenizer):
         """Set tokenizer for decoding predictions"""
         self.tokenizer = tokenizer
@@ -660,9 +667,14 @@ class ScratchVLMTrainer:
             # Forward pass
             self.optimizer.zero_grad()
             
-            # Get model outputs
+            # Get model outputs (with the MTP depths' logits when objective == "mtp")
             #outputs = self.model(images, input_ids)
-            outputs = self.model(images, input_ids, attention_mask=attention_mask)
+            mtp_outputs = None
+            if self.uses_mtp:
+                mtp_outputs = self.model(images, input_ids, attention_mask=attention_mask, return_mtp=True)
+                outputs = mtp_outputs[0]
+            else:
+                outputs = self.model(images, input_ids, attention_mask=attention_mask)
             
             # Prepare targets for loss calculation
             # For next-token prediction:
@@ -711,6 +723,13 @@ class ScratchVLMTrainer:
             outputs_for_loss.reshape(-1, outputs_for_loss.size(-1)),
             targets.reshape(-1)  # targets are already shifted and padded properly
             )
+            mtp_value = None
+            if mtp_outputs is not None:
+                # Multi-token prediction: depth d at position i predicts targets[:, i + d].
+                from hale_vlm.models.scratch.components.mtp import mtp_loss
+
+                mtp_value = mtp_loss(mtp_outputs[1], targets)
+                loss = loss + self.mtp_loss_weight * mtp_value
             
             # for debugging
             # Print output IDs (predictions) after loss calculation
@@ -751,6 +770,8 @@ class ScratchVLMTrainer:
             # Log to tensorboard
             if self.log_tensorboard and batch_idx % 1000 == 0:
                 self.writer.add_scalar('train_loss_step', loss.item(), self.global_step)
+                if mtp_value is not None:
+                    self.writer.add_scalar('train_mtp_loss_step', mtp_value.item(), self.global_step)
                 self.writer.add_scalar('learning_rate', self.scheduler.get_last_lr()[0], self.global_step)
                 
                 # Log gradient statistics
@@ -979,6 +1000,7 @@ class ScratchVLMTrainer:
             max_epochs=cfg.train.max_epochs,
             log_tensorboard=cfg.train.log_tensorboard,
             log_dir=cfg.train.log_dir,
+            mtp_loss_weight=cfg.model.scratch.mtp_loss_weight,
         )
         trainer.set_tokenizer(data_module.tokenizer)
         return trainer
